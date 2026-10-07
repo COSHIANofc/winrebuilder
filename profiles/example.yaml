@@ -1,0 +1,22 @@
+version: 1
+packages:
+  - name: WizTree
+    provider: winget
+    id: AntibodySoftware.WizTree
+  - name: 7-Zip
+    provider: winget
+    id: 7zip.7zip
+  # High-risk shell change. Review the latest release before applying.
+  - name: ExplorerPatcher
+    provider: github
+    repository: valinet/ExplorerPatcher
+    asset: ep_setup.exe
+    installer: exe
+    silentMode: silent
+    uninstallDisplayName: ExplorerPatcher
+    phase: shell
+registry:
+  - path: HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate
+    name: ExcludeWUDriversInQualityUpdate
+    type: DWORD
+    value: 1

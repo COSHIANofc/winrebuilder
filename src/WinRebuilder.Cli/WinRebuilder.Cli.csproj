@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><AssemblyName>winrebuilder</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../WinRebuilder.Core/WinRebuilder.Core.csproj" />
+    <ProjectReference Include="../WinRebuilder.Windows/WinRebuilder.Windows.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,27 @@
+name: Build
+on:
+  push:
+  pull_request:
+jobs:
+  core:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet restore WinRebuilder.slnx
+      - run: dotnet build src/WinRebuilder.Core/WinRebuilder.Core.csproj --no-restore
+      - run: dotnet test tests/WinRebuilder.Core.Tests/WinRebuilder.Core.Tests.csproj --no-restore
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet restore WinRebuilder.slnx
+      - run: dotnet build WinRebuilder.slnx --no-restore
+      # Adapter tests use fake winget processes; no package installation runs in CI.
+      - run: dotnet test tests/WinRebuilder.Core.Tests/WinRebuilder.Core.Tests.csproj --no-build
+      - run: dotnet test tests/WinRebuilder.Windows.Tests/WinRebuilder.Windows.Tests.csproj --no-build
