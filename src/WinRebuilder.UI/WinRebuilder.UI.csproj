@@ -8,6 +8,10 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="../../config.yml" LogicalName="WinRebuilder.DefaultConfig" />
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>WinRebuilder.UI.Tests</_Parameter1>
+    </AssemblyAttribute>
     <ProjectReference Include="../WinRebuilder.Core/WinRebuilder.Core.csproj" />
     <ProjectReference Include="../WinRebuilder.Windows/WinRebuilder.Windows.csproj" />
   </ItemGroup>

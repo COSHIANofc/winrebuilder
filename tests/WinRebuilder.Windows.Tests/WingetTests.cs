@@ -110,7 +110,7 @@ public sealed class WingetTests
         var package = ProfileLoader.Load("version: 1\nexplorerPatcher:\n  enabled: true\n  provider: winget\n  packageId: valinet.ExplorerPatcher").Profile.Packages.Single();
         var runner = new ScriptedRunner();
         runner.Replies.Enqueue(new(0, OfficialSource, ""));
-        runner.Replies.Enqueue(new(0, $"Found ExplorerPatcher [{package.Id}]\nInstaller Url: {WingetCommands.ExplorerPatcherInstallerUrl}\nInstaller SHA256: {WingetCommands.ExplorerPatcherInstallerSha256}", ""));
+        runner.Replies.Enqueue(new(0, $"Found ExplorerPatcher [{package.Id}]\nVersion: {WingetCommands.ExplorerPatcherVersion}\nPublisher: {WingetCommands.ExplorerPatcherPublisher}\nInstaller Url: {WingetCommands.ExplorerPatcherInstallerUrl}\nInstaller SHA256: {WingetCommands.ExplorerPatcherInstallerSha256}", ""));
         runner.Replies.Enqueue(new(0, "", ""));
         await Provider(runner).InstallAsync(package, default);
         Assert.Equal(WingetCommands.ExportWingetSource, runner.Calls[0].Args);
@@ -126,6 +126,17 @@ public sealed class WingetTests
         var runner = new ScriptedRunner();
         runner.Replies.Enqueue(new(0, OfficialSource, ""));
         runner.Replies.Enqueue(new(0, "Found ExplorerPatcher [valinet.ExplorerPatcher]\nInstaller Url: https://example.com/ep_setup.exe", ""));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Provider(runner).InstallAsync(package, default));
+        Assert.Equal(2, runner.Calls.Count);
+    }
+
+    [Fact]
+    public async Task ExplorerPatcherPublisherMismatchStopsBeforeInstall()
+    {
+        var package = ProfileLoader.Load("version: 1\nexplorerPatcher:\n  enabled: true\n  provider: winget\n  packageId: valinet.ExplorerPatcher").Profile.Packages.Single();
+        var runner = new ScriptedRunner();
+        runner.Replies.Enqueue(new(0, OfficialSource, ""));
+        runner.Replies.Enqueue(new(0, $"Found ExplorerPatcher [{package.Id}]\nVersion: {WingetCommands.ExplorerPatcherVersion}\nPublisher: Unexpected\nInstaller Url: {WingetCommands.ExplorerPatcherInstallerUrl}\nInstaller SHA256: {WingetCommands.ExplorerPatcherInstallerSha256}", ""));
         await Assert.ThrowsAsync<InvalidOperationException>(() => Provider(runner).InstallAsync(package, default));
         Assert.Equal(2, runner.Calls.Count);
     }

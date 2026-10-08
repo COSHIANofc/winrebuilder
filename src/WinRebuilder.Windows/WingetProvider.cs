@@ -8,6 +8,7 @@ public static class WingetCommands
 {
     public const string Executable = "winget";
     public const string ExplorerPatcherVersion = "26100.8457.70.3";
+    public const string ExplorerPatcherPublisher = "VALINET Solutions SRL";
     public const string ExplorerPatcherInstallerUrl = "https://github.com/valinet/ExplorerPatcher/releases/download/26100.8457.70.3/ep_setup.exe";
     public const string ExplorerPatcherInstallerSha256 = "8146DB4D3A87201FB80AD1D3712BA8F56883E9A0811758BD39F62D73A9F2C586";
     public static IReadOnlyList<string> Version => ["--version"];
@@ -109,6 +110,9 @@ public sealed class WingetProvider : IPackageProvider
                 throw new InvalidOperationException("The winget source is not the official Microsoft community source; ExplorerPatcher installation stopped.");
             var manifest = await runner.RunAsync(WingetCommands.Executable, WingetCommands.ShowExplorerPatcher, ct);
             if (!WingetExitCodes.IsSuccess(manifest.ExitCode) || manifest.OutputTruncated ||
+                !manifest.StandardOutput.Contains($"[{ProfileLoader.ExplorerPatcherWingetId}]", StringComparison.Ordinal) ||
+                !manifest.StandardOutput.Contains(WingetCommands.ExplorerPatcherVersion, StringComparison.Ordinal) ||
+                !manifest.StandardOutput.Contains(WingetCommands.ExplorerPatcherPublisher, StringComparison.Ordinal) ||
                 !manifest.StandardOutput.Contains(WingetCommands.ExplorerPatcherInstallerUrl, StringComparison.Ordinal) ||
                 !manifest.StandardOutput.Contains(WingetCommands.ExplorerPatcherInstallerSha256, StringComparison.OrdinalIgnoreCase) ||
                 !manifest.StandardOutput.Contains(ProfileLoader.ExplorerPatcherWingetId, StringComparison.Ordinal))

@@ -3,3 +3,9 @@
 .vs/
 .idea/
 .DS_Store
+publish/
+release-assets/
+release-package/
+ui-sanity/
+*.pfx
+*.p12

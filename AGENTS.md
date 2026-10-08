@@ -16,7 +16,7 @@ Development is performed primarily on macOS.
 The final application runs on Windows 11.
 
 `config.yml` is the canonical user configuration. `config.example.yml` is the conservative release example.
-The WPF GUI edits `config.yml` through WinRebuilder.Core; CLI, GUI, planner and executor use that same model.
+The WPF GUI edits `config.yml` through WinRebuilder.Core; the GUI, planner and executor use that same model.
 The public version is the exact `InformationalVersion` in `Directory.Build.props`; `Version`, `AssemblyVersion`, and `FileVersion` stay numeric.
 
 ## Priorities
@@ -39,10 +39,11 @@ Keep Windows-specific behavior isolated from platform-independent logic.
 Preferred projects:
 
 - WinRebuilder.Core
-- WinRebuilder.Cli
 - WinRebuilder.Windows
+- WinRebuilder.UI
 - WinRebuilder.Core.Tests
 - WinRebuilder.Windows.Tests
+- WinRebuilder.UI.Tests
 
 Core must not directly depend on Windows APIs.
 
@@ -196,13 +197,7 @@ Do not store arbitrary absolute, UNC, device, or traversal paths in configuratio
 
 WinRebuilder release artifacts target Windows 11 x64.
 
-The terminal command is `wrb`, a local command alias only. It invokes the WinRebuilder-branded CLI binary. Do not publish `wrb.exe` or rename WinRebuilder binaries to `wrb`.
-
-The command-line executable is:
-
-`WinRebuilder.Cli.exe`
-
-The graphical application executable is:
+WinRebuilder is GUI-only. The graphical application executable is:
 
 `WinRebuilder.exe`
 
@@ -225,7 +220,8 @@ The tag-release workflow must:
 - fail before publishing if the tag and application version differ
 - run restore, build, and tests before release publication
 - verify expected release artifacts exist and are non-empty
-- generate SHA-256 checksums for executable artifacts
+- sign the published executable with a real COSHIAN Authenticode certificate and verify it before packaging
+- reject release publication when production signing secrets are unavailable
 - use only the GitHub-provided `GITHUB_TOKEN`
 - use job-scoped `contents: write` only where release publication requires it
 - avoid long-lived repository or personal access tokens
@@ -234,13 +230,10 @@ The tag-release workflow must:
 
 Release assets should include the required executable artifacts and conservative configuration examples.
 
-For the current architecture, expected release artifacts include at least:
-
-- `WinRebuilder.Cli.exe`
-- `WinRebuilder.Cli.exe.sha256`
-- `WinRebuilder.exe`
-- `WinRebuilder.exe.sha256`
-- `config.example.yml`
+The only manually uploaded release assets are `WinRebuilder.zip` and `WinRebuilder-portable.exe`.
+The ZIP must contain exactly `README.md`, `WinRebuilder.exe`, `config.yml`, and `config.example.yml`.
+The portable executable must be a byte-for-byte copy of the final signed executable.
+GitHub provides source code archives automatically.
 
 Do not publish a default configuration that performs unexpected or destructive machine changes.
 

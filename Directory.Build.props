@@ -1,10 +1,15 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Version>0.3.1</Version>
-    <AssemblyVersion>0.3.1.0</AssemblyVersion>
-    <FileVersion>0.3.1.0</FileVersion>
-    <InformationalVersion>v.0.3.b-beta</InformationalVersion>
+    <Version>0.3.1.1</Version>
+    <AssemblyVersion>0.3.1.1</AssemblyVersion>
+    <FileVersion>0.3.1.1</FileVersion>
+    <InformationalVersion>v.0.3.c-beta</InformationalVersion>
+    <Company>COSHIAN</Company>
+    <Product>WinRebuilder</Product>
+    <AssemblyTitle>WinRebuilder</AssemblyTitle>
+    <Description>WinRebuilder</Description>
+    <Copyright>Copyright © COSHIAN</Copyright>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

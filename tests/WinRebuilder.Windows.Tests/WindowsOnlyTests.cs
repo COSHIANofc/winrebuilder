@@ -21,7 +21,7 @@ public sealed class WindowsOnlyTests
         try
         {
             var store = new JsonRegistryBackupStore(folder);
-            var backup = new RegistryBackup(1, RegistryBackupId.Create(), new string('A', 64), "v.0.3.b-beta",
+            var backup = new RegistryBackup(1, RegistryBackupId.Create(), new string('A', 64), "v.0.3.c-beta",
                 new string('a', 24), DateTimeOffset.UtcNow, RegistryHiveKind.CurrentUser,
                 @"Software\Policies\WinRebuilderTests", RegistryViewKind.Registry64, "Value",
                 RegistryValue.Missing, RegistryValue.FromDWord(1));

@@ -49,6 +49,9 @@ public sealed class ConfigurationWorkspace
     public async Task<string> CopyExplorerSettingsAsync(string source, CancellationToken ct = default)
     {
         if (!source.EndsWith(".reg", StringComparison.OrdinalIgnoreCase)) throw new FormatException("Select a .reg file.");
+        var sourceInfo = new FileInfo(source);
+        if ((sourceInfo.Attributes & FileAttributes.ReparsePoint) != 0) throw new FormatException("Selected settings file cannot be a symbolic link.");
+        if (sourceInfo.Length > 64 * 1024) throw new FormatException("ExplorerPatcher settings file size is invalid.");
         var bytes = await File.ReadAllBytesAsync(source, ct);
         ExplorerRegParser.ParseBytes(bytes);
         var folder = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Path)!, "settings");

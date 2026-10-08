@@ -10,9 +10,9 @@ public sealed class FoundationTests
     [Fact] public void PublicVersionMetadataIsExact()
     {
         var assembly = typeof(Executor).Assembly;
-        Assert.Equal(new Version(0, 3, 1, 0), assembly.GetName().Version);
-        Assert.Equal("0.3.1.0", assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version);
-        Assert.Equal("v.0.3.b-beta", assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+        Assert.Equal(new Version(0, 3, 1, 1), assembly.GetName().Version);
+        Assert.Equal("0.3.1.1", assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version);
+        Assert.Equal("v.0.3.c-beta", assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
     }
     private const string Base = """
         version: 1

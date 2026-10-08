@@ -28,3 +28,10 @@ jobs:
       # Adapter tests use fake winget processes; no package installation runs in CI.
       - run: dotnet test tests/WinRebuilder.Core.Tests/WinRebuilder.Core.Tests.csproj --no-build
       - run: dotnet test tests/WinRebuilder.Windows.Tests/WinRebuilder.Windows.Tests.csproj --no-build
+      - run: dotnet test tests/WinRebuilder.UI.Tests/WinRebuilder.UI.Tests.csproj --no-build
+      - name: Publish and launch GUI without modifying machine state
+        shell: pwsh
+        run: |
+          dotnet publish src/WinRebuilder.UI/WinRebuilder.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false -p:DebugType=None -p:DebugSymbols=false -o ui-sanity
+          if ($LASTEXITCODE -ne 0) { throw 'GUI publish failed.' }
+          ./packaging/Test-Startup.ps1 ui-sanity/WinRebuilder.exe

@@ -1,74 +1,88 @@
 # WinRebuilder
 
-Current public version: **v.0.3.b-beta**. Internal Version is `0.3.1`; AssemblyVersion and FileVersion are `0.3.1.0`. The unfinished `v.0.3.a-beta` was superseded before release and was never published.
+Current public version: **v.0.3.c-beta**. Internal Version, AssemblyVersion, and FileVersion: `0.3.1.1`.
 
-WinRebuilder reconstructs a Windows 11 environment from [config.yml](config.yml). The CLI, WPF GUI, planner, and executor share the same Core model. There is no separate software database. Windows runtime behavior still needs testing on a disposable Windows 11 machine.
+WinRebuilder is a native Windows 11 graphical application for rebuilding a reviewed software and settings configuration. [config.yml](config.yml) is the canonical profile; the GUI, planner, and executor share the same Core model.
 
-## Install and run
+## Requirements
 
-Download `WinRebuilder.exe`, `WinRebuilder.Cli.exe`, `wrb.cmd`, and `config.example.yml` from the [prerelease](https://github.com/COSHIANofc/winrebuilder/releases) into one user-writable folder. Verify the executable checksums, then copy `config.example.yml` to `config.yml` in that folder and review it. The binaries are self-contained single-file `win-x64` builds with trimming disabled. They do not require an installed .NET runtime.
+- Windows 11 x64. Release executables are self-contained and need no separately installed .NET runtime.
+- A user-writable folder for the executable and `config.yml`.
+- Winget for winget packages; administrator permission when a selected registry operation targets HKLM.
 
-`wrb` is the terminal alias, supplied as a small `wrb.cmd` beside `WinRebuilder.Cli.exe`. The shim quotes the CLI path and forwards arguments. It does not install a service or modify PATH. Run it from its folder, or add that folder to your **user** PATH yourself, then open a new terminal. To remove the alias, delete `wrb.cmd` and remove that folder from user PATH if you added it. No `wrb.exe` is published.
+## Installation
 
-```text
-wrb --help
-wrb --version
-wrb validate config.yml
-wrb plan config.yml
-wrb apply config.yml --dry-run
-wrb apply config.yml
-wrb backups
-wrb rollback <backup-id> --dry-run
-wrb rollback <backup-id>
-wrb ui
-```
+### Standard
 
-`wrb ui` opens `WinRebuilder.exe` from the same folder. The GUI reads and edits that folder's `config.yml`. `--help` and `-h` exit successfully and show commands. Invalid commands return a nonzero exit code and direct users to `wrb --help`. On macOS, `validate` and `plan` work, and `apply --dry-run` gives a plan-only preview without checking Windows state. Applying changes and the GUI require Windows.
+1. Open the [latest GitHub Release](https://github.com/COSHIANofc/winrebuilder/releases).
+2. Download `WinRebuilder.zip` and extract it into a user-writable folder.
+3. Review `config.yml`, then run `WinRebuilder.exe` directly.
+4. If Windows displays a security prompt, inspect the publisher and signature before continuing. Public release packaging requires a valid COSHIAN Authenticode signature and timestamp.
 
-## GUI
+The ZIP contains exactly `README.md`, `WinRebuilder.exe`, `config.yml`, and `config.example.yml`, with no wrapper folder. `config.yml` is edited beside the executable. `config.example.yml` is an example; it is not loaded automatically.
 
-The native .NET 10 WPF GUI shows configured software by name, provider, package ID, and status. Add accepts a display name and exact winget package ID; Core rejects malformed or duplicate entries before saving. Remove deletes the selected entry from `config.yml` and **does not uninstall** software. Reload rereads the file; a failed reload leaves the last valid in-memory configuration available.
+### Portable
 
-Install Selected and Install All run asynchronously through the Core planner and Windows executor. Install All runs normal packages before ExplorerPatcher in the final shell phase. Status and bounded log output show results. Cancel requests cancellation of an active operation. ExplorerPatcher controls enable or disable its package, select a `.reg` file with a native picker, validate and copy it into `settings/`, and apply its supported settings. The GUI has no direct winget, YAML, or registry implementation. It uses simple WPF controls, no polling, no local server, and no extra UI framework.
+1. Download `WinRebuilder-portable.exe` from the same release.
+2. Place it in a user-writable folder and run it directly.
 
-Selecting ExplorerPatcher also checks or installs normal configured packages first. Applying its settings follows the same package order before any registry change.
+The portable EXE is a byte-for-byte copy of the final signed `WinRebuilder.exe`. On first launch, it creates `config.yml` beside itself from an embedded default profile if the file is absent. Later edits stay in that folder. If the folder cannot be written, the GUI reports the error; it does not silently redirect configuration to a system directory. `config.example.yml` is optional for portable use.
+
+For a signed release, open the executable's **Properties → Digital Signatures** and check that Windows validates the signature and shows **COSHIAN** as signer. File metadata such as Company and Product is separate from a digital signature. Do not assume a release is signed if Windows does not show a valid signature.
+
+## Usage
+
+Launch `WinRebuilder.exe`. The sidebar has Software, ExplorerPatcher, Configuration, and About views. Software displays configured package identity and operation status. **Check status** queries installed state on demand without applying changes. Add accepts an exact winget ID. Remove deletes an entry from `config.yml`; it does **not** uninstall the application from Windows. Install selected and Install all use the same Core planner and Windows executor, with ExplorerPatcher in the final shell phase. Activity shows status and a bounded log, and Cancel requests cancellation.
+
+The Configuration view reloads the profile and lists registry backups on demand. Select a backup to restore its previous value. Rollback refuses to overwrite a later unrelated change. The UI does not enumerate winget, contact the network, or scan the registry at startup.
 
 ## Configuration
 
-The normal default software set is exactly **7-Zip**, **CrystalDiskInfo**, and **ExplorerPatcher**. The first two are ordinary winget packages; ExplorerPatcher is represented once under `explorerPatcher` and is synthesized as one shell-phase operation. Current verified IDs are `7zip.7zip`, `CrystalDewWorld.CrystalDiskInfo`, and `valinet.ExplorerPatcher`. Their identities come from the [7-Zip manifest](https://github.com/microsoft/winget-pkgs/tree/master/manifests/7/7zip/7zip), [CrystalDiskInfo manifest](https://github.com/microsoft/winget-pkgs/tree/master/manifests/c/CrystalDewWorld/CrystalDiskInfo), and [ExplorerPatcher manifest](https://github.com/microsoft/winget-pkgs/tree/master/manifests/v/valinet/ExplorerPatcher/26100.8457.70.3) in Microsoft's winget-pkgs repository.
+The default software is **7-Zip**, **CrystalDiskInfo**, and **ExplorerPatcher**, with verified winget IDs `7zip.7zip`, `CrystalDewWorld.CrystalDiskInfo`, and `valinet.ExplorerPatcher`. The [7-Zip manifest](https://github.com/microsoft/winget-pkgs/tree/master/manifests/7/7zip/7zip), [CrystalDiskInfo manifest](https://github.com/microsoft/winget-pkgs/tree/master/manifests/c/CrystalDewWorld/CrystalDiskInfo), and [ExplorerPatcher manifest](https://github.com/microsoft/winget-pkgs/tree/master/manifests/v/valinet/ExplorerPatcher/26100.8457.70.3) are in Microsoft's winget-pkgs repository.
 
-[config.example.yml](config.example.yml) contains those three products and no registry changes. ExplorerPatcher settings restoration is optional, so the example validates without a `.reg` file. Edit `config.yml` directly or use the GUI; no C# changes are needed to add or remove software. Pass an explicit path to CLI commands. Profiles are limited to 64 KiB, version `1`, and known fields. Duplicate keys, unknown fields, YAML anchors, aliases, tags, merge keys, duplicate package names, and duplicate winget IDs are rejected. No command or script profile field exists. Normal package operations precede normal registry operations; shell package operations and ExplorerPatcher settings follow.
+`config.example.yml` has no normal registry changes. ExplorerPatcher settings restoration remains optional. Profiles are limited to 64 KiB, version `1`, and known fields. Duplicate keys, unknown fields, YAML anchors, aliases, tags, merge keys, duplicate package names, and duplicate winget IDs are rejected. Profiles cannot execute arbitrary commands or scripts. Supported package sources are winget, GitHub Releases with exact assets, and direct HTTPS URLs with SHA-256. Downloads use temporary files and verification before replacement.
 
-Supported package providers are `winget` with an exact `id`, `github` with an exact release asset and installer metadata, and direct HTTPS `url` with SHA-256. Winget IDs use Core validation and separate process arguments. Direct downloads require SHA-256 and move temporary files into place only after validation. Downloaded installers use fixed switches; arbitrary arguments are not accepted.
+The GUI saves through `ConfigurationWorkspace`, which validates before saving and atomically replaces `config.yml`. It retains one `config.yml.bak` and detects concurrent edits. Configuration and ExplorerPatcher settings paths cannot traverse symlinks or escape the configuration folder.
 
-`ConfigurationWorkspace` validates before saving, writes and flushes a temporary file, validates it again, and atomically replaces `config.yml`. At most one `config.yml.bak` is retained. A failed validation leaves the original file unchanged. Concurrent edits on disk are detected before replacement. The GUI never edits YAML itself.
+## ExplorerPatcher
 
-## ExplorerPatcher source chain
+ExplorerPatcher is a high-risk shell modification and runs in the final phase. WinRebuilder uses the verified winget package `valinet.ExplorerPatcher`, pinned to version `26100.8457.70.3`. Microsoft's [installer manifest](https://github.com/microsoft/winget-pkgs/blob/master/manifests/v/valinet/ExplorerPatcher/26100.8457.70.3/valinet.ExplorerPatcher.installer.yaml) points to the official `valinet/ExplorerPatcher` GitHub release. WinRebuilder verifies the Microsoft winget source, package identity, installer URL, and SHA-256 before installation, and verifies installed-package detection afterward. There is no direct-download fallback.
 
-ExplorerPatcher is a high-risk shell modification. Its [upstream repository](https://github.com/valinet/ExplorerPatcher) identifies its own GitHub Releases as the official distribution channel. WinRebuilder invokes winget, pinned to package `valinet.ExplorerPatcher`, version `26100.8457.70.3`, and the `winget` source. Microsoft's [installer manifest](https://github.com/microsoft/winget-pkgs/blob/master/manifests/v/valinet/ExplorerPatcher/26100.8457.70.3/valinet.ExplorerPatcher.installer.yaml) points to `https://github.com/valinet/ExplorerPatcher/releases/download/26100.8457.70.3/ep_setup.exe` with SHA-256 `8146DB4D3A87201FB80AD1D3712BA8F56883E9A0811758BD39F62D73A9F2C586`. Its [metadata](https://github.com/microsoft/winget-pkgs/blob/master/manifests/v/valinet/ExplorerPatcher/26100.8457.70.3/valinet.ExplorerPatcher.locale.en-US.yaml) names ExplorerPatcher and VALINET Solutions SRL. Before installation, WinRebuilder asks winget to show that exact package and refuses installation unless the returned ID, URL, and hash match. It does not fall back to a direct download. A future upstream release requires explicit review and a new pin.
+The native picker accepts `.reg` files only for ExplorerPatcher settings. Core parses and validates the complete file against a separate strict allowlist before any mutation, then stores a validated copy in `settings/` beside `config.yml`. There is no generic registry import, and no `regedit.exe`, `reg.exe`, PowerShell, or cmd invocation for settings restoration.
 
-WinRebuilder also verifies that the local `winget` source exports Microsoft's `https://cdn.winget.microsoft.com/cache` endpoint and expected source identity before asking winget to show the pinned manifest.
+## Registry safety and rollback
 
-## ExplorerPatcher settings and registry recovery
+Normal `registry:` entries remain limited to `HKLM\SOFTWARE\Policies` and `HKCU\Software\Policies`, with DWORD or string values. For every changed value, WinRebuilder reads the previous state, writes a typed backup, reloads and verifies that backup, confirms the value has not changed since inspection, applies the change, and rereads the result before marking completion. Backups live under `%ProgramData%\WinRebuilder\backups`. The Configuration view can restore a selected value through the same rollback infrastructure. HKLM writes and rollback require elevation.
 
-The GUI's native picker accepts `.reg` files. Core reads the complete file as strict UTF-8 (with or without BOM) or UTF-16 LE with BOM, validates every statement and ExplorerPatcher-specific allowlist entry, then copies valid bytes to a safe relative path under `settings/`. The original file is unchanged. Absolute paths, traversal, UNC paths, device paths, symbolic-link traversal, malformed encodings, unsupported syntax, HKLM, Run/RunOnce, recursive key deletion, and update source overrides are rejected. There is no generic `.reg` import and no `regedit`, `reg.exe`, or shell invocation for registry import. The normal `registry:` Policies-only allowlist remains separate.
+Dry-run APIs do not write registry, package, download, backup, log, or execution state. Read-only winget queries may refresh winget's own metadata cache. Windows CI uses fakes for destructive paths. Actual installation effects and second-run idempotency still need testing on a disposable Windows 11 machine.
 
-Before any ExplorerPatcher registry mutation, Core reads all target values, creates typed backups for changes, persists and reloads every backup, verifies the original values have not changed, and only then starts writing. Every changed value is reread and verified before completion. A later runtime failure may leave earlier verified values changed; each has its own backup for rollback. A File Explorer restart or sign-out may be needed for visual effects. The importer supports only the [official allowlisted settings subset](https://github.com/valinet/ExplorerPatcher/blob/master/ep_gui/resources/settings.reg), not every setting in an upstream export.
-
-Normal registry entries are restricted to `HKLM\SOFTWARE\Policies` or `HKCU\Software\Policies`, with DWORD or string values. Backups are saved under `%ProgramData%\WinRebuilder\backups`, written via temporary files, reloaded, and validated before writes. `wrb backups` lists backup IDs; `wrb rollback <backup-id>` restores one value and verifies it, without recursively removing keys. Rollback refuses to overwrite unrelated later edits. HKLM writes and rollback require elevation. Backups are validated for structure, but are not cryptographically authenticated against deliberate local modification.
-
-Dry run reads state and may run winget's read-only queries, but WinRebuilder does not install packages, download artifacts, write registry values, backups, logs, or execution state. Winget itself may refresh its metadata cache during queries. The Windows process runner bounds captured output and supports cancellation. Installation stops at the first failure. Windows CI uses fakes and does not install software; actual winget behavior, WPF interaction, installer switches, ExplorerPatcher effects, and second-run idempotency still need a disposable Windows 11 test machine.
-
-## Development and release
+## Building
 
 ```sh
 dotnet restore WinRebuilder.slnx
 dotnet build WinRebuilder.slnx
 dotnet test WinRebuilder.slnx
-dotnet run --project src/WinRebuilder.Cli -- --version
-dotnet run --project src/WinRebuilder.Cli -- validate config.example.yml
-dotnet run --project src/WinRebuilder.Cli -- plan config.example.yml
-dotnet run --project src/WinRebuilder.Cli -- apply config.example.yml --dry-run
+dotnet publish src/WinRebuilder.UI/WinRebuilder.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false
 ```
 
-The release workflow validates the tag against the exact public version, builds and tests on Windows, verifies both published executables are nonempty, writes SHA-256 files, and publishes a prerelease with `WinRebuilder.exe`, `WinRebuilder.Cli.exe`, their checksums, `wrb.cmd`, and `config.example.yml`. It uses the GitHub-provided token with job-scoped write permission. No long-lived token, NativeAOT, trimming, or heavyweight UI dependency is used.
+Core tests run on macOS. Windows adapter and WPF tests run on Windows. A macOS build compiles WPF but does not establish that its window works at runtime. The release workflow runs a Windows startup sanity check without installing packages or changing registry values.
+
+## Release and verification
+
+The tag workflow requires the exact public version, builds and tests, measures five publish variants, verifies that the main WPF window opens, and packages a self-contained compressed single-file build with trimming and ReadyToRun disabled. WPF and YAML reflection paths have not been fully validated under trimming, so production trimming stays off. Release assets contain no PDB files.
+
+Final-source unsigned cross-publish measurements on macOS (signing changes the final EXE size; Windows startup timing is measured in the release workflow):
+
+| Configuration | EXE bytes | Chosen |
+| --- | ---: | --- |
+| Self-contained single-file baseline | 140,217,609 | No |
+| Compressed single-file | 65,001,530 | No |
+| Compressed, ReadyToRun off | 65,001,530 | Yes |
+| Compressed, ReadyToRun on | 70,154,641 | No |
+| Framework-dependent comparison | 162,304 launcher; 676 KiB folder | No |
+
+The current SDK baseline already has ReadyToRun disabled, so the compressed and explicit ReadyToRun-off outputs match in size. The framework-dependent build requires the Windows Desktop .NET runtime on the target machine. Compression cuts the self-contained EXE by about 54%; CI rejects the choice if first or warm Windows startup is too slow.
+
+Public releases require a real Authenticode certificate whose subject contains **COSHIAN**. GitHub Actions reads the PFX, password, and RFC 3161 timestamp URL from `WINDOWS_SIGNING_CERT_PFX_BASE64`, `WINDOWS_SIGNING_CERT_PASSWORD`, and `WINDOWS_SIGNING_TIMESTAMP_URL` secrets. It signs with SHA-256, verifies the signature and timestamp, copies the signed bytes to the portable name, verifies that copy, and inspects the ZIP manifest. If signing is unavailable or invalid, the release job fails. Local Debug and normal CI builds may be unsigned.
+
+The only manually uploaded assets are `WinRebuilder.zip` and `WinRebuilder-portable.exe`. GitHub supplies Source code (zip) and Source code (tar.gz) from the tag. The release workflow uses only `GITHUB_TOKEN`, with `contents: write` confined to the publication job. It will not overwrite an existing release.

@@ -39,6 +39,9 @@ public static class ConfigLoader
     public static async Task<LoadedProfile> LoadAsync(string configPath, CancellationToken ct = default)
     {
         if (!File.Exists(configPath)) throw new FileNotFoundException("Configuration file not found.");
+        var info = new FileInfo(configPath);
+        if ((info.Attributes & FileAttributes.ReparsePoint) != 0) throw new FormatException("Configuration file cannot be a symbolic link.");
+        if (info.Length > 64 * 1024) throw new FormatException("Profile exceeds 64 KiB.");
         var profile = ProfileLoader.Load(await File.ReadAllTextAsync(configPath, ct));
         if (profile.Profile.ExplorerPatcher is not { Enabled: true, SettingsFile: { } file }) return profile;
         var resolved = ExplorerSettingsPath.Resolve(configPath, file);

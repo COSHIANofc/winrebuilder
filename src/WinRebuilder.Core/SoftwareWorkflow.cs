@@ -25,15 +25,18 @@ public sealed class SoftwareWorkflow(ConfigurationWorkspace workspace, IPlanRunn
     public Task<IReadOnlyList<OperationResult>> InstallAllAsync(CancellationToken ct = default) =>
         RunAsync(x => x.Type == OperationType.Package, ct);
 
+    public Task<IReadOnlyList<OperationResult>> CheckStatusAsync(CancellationToken ct = default) =>
+        RunAsync(x => x.Type == OperationType.Package, ct, true);
+
     public Task<IReadOnlyList<OperationResult>> ApplyExplorerSettingsAsync(CancellationToken ct = default) =>
         RunAsync(x => x.Type == OperationType.ExplorerPatcherSetting ||
             x.Type == OperationType.Package, ct);
 
-    private Task<IReadOnlyList<OperationResult>> RunAsync(Func<PlannedOperation, bool> select, CancellationToken ct)
+    private Task<IReadOnlyList<OperationResult>> RunAsync(Func<PlannedOperation, bool> select, CancellationToken ct, bool dryRun = false)
     {
         var plan = Planner.Create(workspace.Current);
         var operations = plan.Operations.Where(select).ToArray();
         if (operations.Length == 0) throw new InvalidOperationException("No matching configured operation.");
-        return runner.RunAsync(plan with { Operations = operations }, false, ct);
+        return runner.RunAsync(plan with { Operations = operations }, dryRun, ct);
     }
 }

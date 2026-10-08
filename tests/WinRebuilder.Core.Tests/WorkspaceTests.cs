@@ -44,6 +44,9 @@ public sealed class WorkspaceTests
             Assert.Equal(["7-Zip", "ExplorerPatcher"], runner.Plan!.Operations.Select(x => x.Package!.Name));
             await workflow.InstallSelectedAsync(workflow.Current.Profile.Packages.Single(x => x.Name == "ExplorerPatcher"));
             Assert.Equal(["7-Zip", "ExplorerPatcher"], runner.Plan!.Operations.Select(x => x.Package!.Name));
+            await workflow.CheckStatusAsync();
+            Assert.True(runner.DryRun);
+            Assert.Equal(["7-Zip", "ExplorerPatcher"], runner.Plan!.Operations.Select(x => x.Package!.Name));
         });
     }
 
@@ -103,7 +106,7 @@ public sealed class WorkspaceTests
 
     private static async Task WithWorkspace(Func<string, ConfigurationWorkspace, Task> action)
     {
-        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "wrb-test-" + Guid.NewGuid().ToString("N"));
+        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "winrebuilder-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
         {
@@ -118,10 +121,12 @@ public sealed class WorkspaceTests
     {
         public ExecutionPlan? Plan;
         public bool Fail;
+        public bool DryRun;
         public Task<IReadOnlyList<OperationResult>> RunAsync(ExecutionPlan plan, bool dryRun, CancellationToken ct = default)
         {
             if (Fail) throw new InvalidOperationException("install failed");
             Plan = plan;
+            DryRun = dryRun;
             return Task.FromResult<IReadOnlyList<OperationResult>>(plan.Operations.Select(x =>
                 new OperationResult(x.Id, x.Type, Outcome.Skip, DateTimeOffset.UtcNow, "test")).ToArray());
         }

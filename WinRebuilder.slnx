@@ -1,8 +1,8 @@
 <Solution>
   <Project Path="src/WinRebuilder.Core/WinRebuilder.Core.csproj" />
   <Project Path="src/WinRebuilder.Windows/WinRebuilder.Windows.csproj" />
-  <Project Path="src/WinRebuilder.Cli/WinRebuilder.Cli.csproj" />
   <Project Path="src/WinRebuilder.UI/WinRebuilder.UI.csproj" />
   <Project Path="tests/WinRebuilder.Core.Tests/WinRebuilder.Core.Tests.csproj" />
   <Project Path="tests/WinRebuilder.Windows.Tests/WinRebuilder.Windows.Tests.csproj" />
+  <Project Path="tests/WinRebuilder.UI.Tests/WinRebuilder.UI.Tests.csproj" />
 </Solution>

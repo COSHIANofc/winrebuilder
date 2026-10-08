@@ -1,8 +1,7 @@
 name: Release
 on:
   push:
-    tags:
-      - 'v.*'
+    tags: ['v.*']
 permissions:
   contents: read
 jobs:
@@ -13,26 +12,23 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet restore WinRebuilder.slnx
-      - run: dotnet build WinRebuilder.slnx --no-restore -c Release
-      - run: dotnet test WinRebuilder.slnx --no-build -c Release
-      - name: Validate tag and public version
+      - name: Validate tag and version
         shell: pwsh
         env:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           [xml]$props = Get-Content Directory.Build.props
-          $version = $props.Project.PropertyGroup.InformationalVersion
-          if ($env:TAG_NAME -ne $version) { throw "Tag does not match the public version." }
-          $actual = dotnet run --no-build -c Release --project src/WinRebuilder.Cli -- --version
-          if ($actual.Trim() -ne "WinRebuilder $version") { throw "CLI public version mismatch." }
-      - name: Validate release example
-        run: dotnet run --no-build -c Release --project src/WinRebuilder.Cli -- validate config.example.yml
-      - name: Validate CLI help
+          if ($env:TAG_NAME -ne $props.Project.PropertyGroup.InformationalVersion) { throw 'Tag does not match the public version.' }
+          if ($props.Project.PropertyGroup.Version -ne '0.3.1.1' -or $props.Project.PropertyGroup.AssemblyVersion -ne '0.3.1.1' -or $props.Project.PropertyGroup.FileVersion -ne '0.3.1.1') { throw 'Internal version mismatch.' }
+      - run: dotnet restore WinRebuilder.slnx
+      - run: dotnet build WinRebuilder.slnx --no-restore -c Release
+      - run: dotnet test WinRebuilder.slnx --no-build -c Release
+      - name: Check release source contract
         shell: pwsh
         run: |
-          $helpText = dotnet run --no-build -c Release --project src/WinRebuilder.Cli -- --help | Out-String
-          if ($LASTEXITCODE -ne 0 -or $helpText -notmatch 'wrb \[command\] \[options\]') { throw 'CLI help validation failed.' }
+          if (Test-Path src/WinRebuilder.Cli) { throw 'CLI project remains.' }
+          if (Test-Path packaging/wrb.cmd) { throw 'CLI alias remains.' }
+          if (-not (Test-Path config.yml) -or -not (Test-Path config.example.yml)) { throw 'Configuration files missing.' }
   release:
     needs: validate
     runs-on: windows-latest
@@ -43,47 +39,24 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Publish Windows executables
-        shell: pwsh
-        run: |
-          dotnet publish src/WinRebuilder.Cli/WinRebuilder.Cli.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:DebugType=None -p:DebugSymbols=false -o publish/cli
-          if ($LASTEXITCODE -ne 0) { throw 'CLI publish failed.' }
-          dotnet publish src/WinRebuilder.UI/WinRebuilder.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:DebugType=None -p:DebugSymbols=false -o publish/ui
-          if ($LASTEXITCODE -ne 0) { throw 'UI publish failed.' }
-      - name: Test wrb alias in a quoted path
-        shell: pwsh
-        run: |
-          $aliasDir = Join-Path $env:RUNNER_TEMP 'WinRebuilder Alias Test'
-          New-Item -ItemType Directory -Path $aliasDir -Force | Out-Null
-          Copy-Item -LiteralPath publish/cli/WinRebuilder.Cli.exe -Destination $aliasDir
-          Copy-Item -LiteralPath packaging/wrb.cmd -Destination $aliasDir
-          $actual = & (Join-Path $aliasDir 'wrb.cmd') --version
-          [xml]$props = Get-Content Directory.Build.props
-          if ($LASTEXITCODE -ne 0 -or $actual.Trim() -ne "WinRebuilder $($props.Project.PropertyGroup.InformationalVersion)") { throw 'wrb alias failed in a path with spaces.' }
-      - name: Verify executables and compute SHA-256
+      - name: Measure, publish, sign, and package
         shell: pwsh
         env:
-          TAG_NAME: ${{ github.ref_name }}
-        run: |
-          [xml]$props = Get-Content Directory.Build.props
-          if ($env:TAG_NAME -ne $props.Project.PropertyGroup.InformationalVersion) { throw "Tag does not match the public version." }
-          if (@(Get-ChildItem -LiteralPath publish/cli -File).Count -ne 1 -or
-              @(Get-ChildItem -LiteralPath publish/ui -File).Count -ne 1) { throw 'Single-file publish left additional runtime assets.' }
-          New-Item -ItemType Directory -Path release-assets -Force | Out-Null
-          foreach ($name in @('WinRebuilder.Cli.exe', 'WinRebuilder.exe')) {
-            $source = if ($name -eq 'WinRebuilder.Cli.exe') { "publish/cli/$name" } else { "publish/ui/$name" }
-            if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Expected executable $name is missing." }
-            if ((Get-Item -LiteralPath $source).Length -le 0) { throw "Executable $name is empty." }
-            Copy-Item -LiteralPath $source -Destination "release-assets/$name"
-            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath "release-assets/$name").Hash.ToLowerInvariant()
-            [IO.File]::WriteAllText("release-assets/$name.sha256", "$hash  $name`n", [Text.UTF8Encoding]::new($false))
-          }
-          Copy-Item -LiteralPath config.example.yml -Destination release-assets/config.example.yml
-          Copy-Item -LiteralPath packaging/wrb.cmd -Destination release-assets/wrb.cmd
+          WINDOWS_SIGNING_CERT_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_CERT_PFX_BASE64 }}
+          WINDOWS_SIGNING_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
+          WINDOWS_SIGNING_TIMESTAMP_URL: ${{ secrets.WINDOWS_SIGNING_TIMESTAMP_URL }}
+        run: ./packaging/Build-Release.ps1
       - name: Create prerelease
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
-          gh release create $env:TAG_NAME release-assets/WinRebuilder.exe release-assets/WinRebuilder.exe.sha256 release-assets/WinRebuilder.Cli.exe release-assets/WinRebuilder.Cli.exe.sha256 release-assets/config.example.yml release-assets/wrb.cmd --verify-tag --title "WinRebuilder $env:TAG_NAME" --notes-file .github/release-notes.md --prerelease --latest=false
+          gh release view $env:TAG_NAME --json id 2>$null
+          if ($LASTEXITCODE -eq 0) { throw 'Release already exists; refusing to overwrite historical assets.' }
+          gh release create $env:TAG_NAME release-assets/WinRebuilder.zip release-assets/WinRebuilder-portable.exe --verify-tag --title "WinRebuilder $env:TAG_NAME" --notes-file .github/release-notes.md --prerelease --latest=false
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed.' }
+          $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:TAG_NAME" | ConvertFrom-Json
+          if (-not $release.prerelease -or -not $release.zipball_url -or -not $release.tarball_url) { throw 'Prerelease or GitHub source archives missing.' }
+          $names = @($release.assets | ForEach-Object name | Sort-Object)
+          if ($names.Count -ne 2 -or $names -notcontains 'WinRebuilder-portable.exe' -or $names -notcontains 'WinRebuilder.zip') { throw 'Visible uploaded release assets differ from the required two files.' }
