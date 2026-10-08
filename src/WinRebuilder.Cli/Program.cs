@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Diagnostics;
 using WinRebuilder.Core;
 using WinRebuilder.Windows;
 
@@ -9,12 +10,43 @@ if (args is ["--version"])
     Console.WriteLine($"WinRebuilder {publicVersion}");
     return 0;
 }
+if (args is ["--help"] or ["-h"])
+{
+    Console.WriteLine($"""
+        WinRebuilder {publicVersion}
+
+        Usage:
+          wrb [command] [options]
+
+        Commands:
+          validate <config.yml>       Validate configuration and settings.
+          plan <config.yml>           Show the execution order.
+          apply <config.yml>          Apply configuration.
+          backups                     List registry backups.
+          rollback <backup-id>        Restore a saved registry value.
+          ui                          Open the Windows graphical interface.
+
+        Options:
+          -h, --help                  Show this help.
+          --version                   Show the public version.
+          --dry-run                   Preview apply or rollback without writes.
+        """);
+    return 0;
+}
+if (args is ["ui"])
+{
+    if (!OperatingSystem.IsWindows()) { Console.Error.WriteLine("FAIL: UI requires Windows 11."); return 2; }
+    var ui = Path.Combine(AppContext.BaseDirectory, "WinRebuilder.exe");
+    if (!File.Exists(ui)) { Console.Error.WriteLine("FAIL: WinRebuilder.exe was not found beside the CLI."); return 2; }
+    try { Process.Start(new ProcessStartInfo(ui) { UseShellExecute = false }); return 0; }
+    catch (Exception e) { Console.Error.WriteLine("FAIL: UI could not start: " + e.Message); return 1; }
+}
 var profileCommand = args.Length is >= 2 and <= 3 && args[0] is "validate" or "plan" or "apply" &&
     (args.Length == 2 || args[0] == "apply" && args[2] == "--dry-run");
 var rollbackCommand = args is ["rollback", _] or ["rollback", _, "--dry-run"];
 if (!profileCommand && !rollbackCommand && args is not ["backups"])
 {
-    Console.Error.WriteLine("Usage: winrebuilder --version | backups | rollback <backup-id> [--dry-run] | validate|plan|apply <config.yml> [--dry-run]");
+    Console.Error.WriteLine("Unknown or incomplete command. Run wrb --help for usage.");
     return 2;
 }
 using var cancellation = new CancellationTokenSource();
@@ -65,9 +97,12 @@ try
         return 0;
     }
     var dryRun = args.Length == 3;
-    if (!OperatingSystem.IsWindows() && dryRun && plan.Operations.Count == 0)
+    if (!OperatingSystem.IsWindows() && dryRun)
     {
-        Console.WriteLine("SKIP: no operations.");
+        Console.WriteLine("PREVIEW: non-Windows plan only; installed and registry state were not checked.");
+        foreach (var op in plan.Operations)
+            Console.WriteLine($"WOULD {(op.Type == OperationType.Package ? "INSTALL" : "CHANGE")} {op.Phase} {op.Id} {(op.Package?.Name ?? (op.Registry is { } r ? r.Path + "\\" + r.Name : op.ExplorerSetting!.Path + "\\" + op.ExplorerSetting.Name))}");
+        if (plan.Operations.Count == 0) Console.WriteLine("SKIP: no operations.");
         return 0;
     }
     if (!OperatingSystem.IsWindows())
@@ -80,19 +115,9 @@ try
         Console.Error.WriteLine("FAIL: administrator privileges are required for HKLM changes.");
         return 2;
     }
-    using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromMinutes(10) };
-    var runner = new WindowsProcessRunner();
-    var downloader = new VerifiedDownloader(http);
-    var providers = new IPackageProvider[]
-    {
-        new WingetProvider(runner),
-        new DownloadPackageProvider(PackageProvider.Github, downloader, http, runner, new UninstallRegistryDetector()),
-        new DownloadPackageProvider(PackageProvider.Url, downloader, http, runner, new UninstallRegistryDetector())
-    };
     IOperationLogger logger = dryRun ? new ConsoleOperationLogger(plan) : new CombinedLogger(new ConsoleOperationLogger(plan), new JsonFileOperationLogger());
-    var executor = new Executor(providers, new WindowsRegistry(), new JsonRegistryBackupStore(), new JsonExecutionStateStore(), logger,
-        publicVersion, explorerRegistry: new ExplorerWindowsRegistry());
-    var results = await executor.RunAsync(plan, dryRun, cancellation.Token);
+    using var session = new WindowsExecutionSession(logger);
+    var results = await session.Executor.RunAsync(plan, dryRun, cancellation.Token);
     return results.Any(r => r.Outcome == Outcome.Fail) ? 1 : 0;
 }
 catch (OperationCanceledException) when (cancellation.IsCancellationRequested)

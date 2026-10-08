@@ -1,15 +1,14 @@
-# Edit this file to select applications before running apply.
+# Canonical configuration; review all packages before applying.
 version: 1
 packages:
   - name: 7-Zip
     provider: winget
     id: 7zip.7zip
-  - name: WizTree
+  - name: CrystalDiskInfo
     provider: winget
-    id: AntibodySoftware.WizTree
-  - name: Visual Studio Code
-    provider: winget
-    id: Microsoft.VisualStudioCode
+    id: CrystalDewWorld.CrystalDiskInfo
 registry: []
 explorerPatcher:
-  enabled: false
+  enabled: true
+  provider: winget
+  packageId: valinet.ExplorerPatcher

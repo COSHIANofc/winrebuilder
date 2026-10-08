@@ -12,6 +12,7 @@ public sealed class WingetTests
     private const string Profile = "version: 1\npackages:\n  - name: WizTree\n    provider: winget\n    id: AntibodySoftware.WizTree";
     private const string ListHelp = "--id --exact --disable-interactivity";
     private const string InstallHelp = "--id --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity";
+    private const string OfficialSource = "{\"Arg\":\"https://cdn.winget.microsoft.com/cache\",\"Identifier\":\"Microsoft.Winget.Source_8wekyb3d8bbwe\",\"Name\":\"winget\",\"Type\":\"Microsoft.PreIndexed.Package\"}";
 
     [Fact]
     public async Task CapabilityProbeChecksVersionAndRequiredFlags()
@@ -101,6 +102,42 @@ public sealed class WingetTests
         Assert.Equal(["install", "--id", Id, "--exact", "--silent", "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"], runner.Calls.Single().Args);
         Assert.Throws<ArgumentException>(() => WingetCommands.InstallExact("Vendor.App --source evil"));
         Assert.Equal("Vendor.App;echo", WingetCommands.ListExact("Vendor.App;echo")[2]);
+    }
+
+    [Fact]
+    public async Task ExplorerPatcherRequiresVerifiedOfficialInstallerBeforeInstall()
+    {
+        var package = ProfileLoader.Load("version: 1\nexplorerPatcher:\n  enabled: true\n  provider: winget\n  packageId: valinet.ExplorerPatcher").Profile.Packages.Single();
+        var runner = new ScriptedRunner();
+        runner.Replies.Enqueue(new(0, OfficialSource, ""));
+        runner.Replies.Enqueue(new(0, $"Found ExplorerPatcher [{package.Id}]\nInstaller Url: {WingetCommands.ExplorerPatcherInstallerUrl}\nInstaller SHA256: {WingetCommands.ExplorerPatcherInstallerSha256}", ""));
+        runner.Replies.Enqueue(new(0, "", ""));
+        await Provider(runner).InstallAsync(package, default);
+        Assert.Equal(WingetCommands.ExportWingetSource, runner.Calls[0].Args);
+        Assert.Equal(WingetCommands.ShowExplorerPatcher, runner.Calls[1].Args);
+        Assert.Equal(WingetCommands.ExplorerPatcherVersion, runner.Calls[2].Args[5]);
+        Assert.Equal("winget", runner.Calls[2].Args[7]);
+    }
+
+    [Fact]
+    public async Task ExplorerPatcherManifestMismatchStopsBeforeInstall()
+    {
+        var package = ProfileLoader.Load("version: 1\nexplorerPatcher:\n  enabled: true\n  provider: winget\n  packageId: valinet.ExplorerPatcher").Profile.Packages.Single();
+        var runner = new ScriptedRunner();
+        runner.Replies.Enqueue(new(0, OfficialSource, ""));
+        runner.Replies.Enqueue(new(0, "Found ExplorerPatcher [valinet.ExplorerPatcher]\nInstaller Url: https://example.com/ep_setup.exe", ""));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Provider(runner).InstallAsync(package, default));
+        Assert.Equal(2, runner.Calls.Count);
+    }
+
+    [Fact]
+    public async Task ExplorerPatcherRejectsReplacedWingetSource()
+    {
+        var package = ProfileLoader.Load("version: 1\nexplorerPatcher:\n  enabled: true\n  provider: winget\n  packageId: valinet.ExplorerPatcher").Profile.Packages.Single();
+        var runner = new ScriptedRunner();
+        runner.Replies.Enqueue(new(0, OfficialSource.Replace("cdn.winget.microsoft.com", "example.com"), ""));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Provider(runner).InstallAsync(package, default));
+        Assert.Single(runner.Calls);
     }
 
     [Fact]

@@ -1,6 +1,14 @@
-# Copy to config.yml and add only packages and settings you have reviewed.
+# Copy to config.yml and review all packages before applying.
 version: 1
-packages: []
+packages:
+  - name: 7-Zip
+    provider: winget
+    id: 7zip.7zip
+  - name: CrystalDiskInfo
+    provider: winget
+    id: CrystalDewWorld.CrystalDiskInfo
 registry: []
 explorerPatcher:
-  enabled: false
+  enabled: true
+  provider: winget
+  packageId: valinet.ExplorerPatcher

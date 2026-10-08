@@ -43,16 +43,7 @@ public static class ConfigLoader
         if (profile.Profile.ExplorerPatcher is not { Enabled: true, SettingsFile: { } file }) return profile;
         var resolved = ExplorerSettingsPath.Resolve(configPath, file);
         var bytes = await File.ReadAllBytesAsync(resolved, ct);
-        if (bytes.Length is 0 or > 64 * 1024) throw new FormatException("ExplorerPatcher settings file size is invalid.");
-        string content;
-        try
-        {
-            content = bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE
-                ? new UnicodeEncoding(false, true, true).GetString(bytes, 2, bytes.Length - 2)
-                : new UTF8Encoding(false, true).GetString(bytes);
-        }
-        catch (DecoderFallbackException e) { throw new FormatException("ExplorerPatcher settings encoding is invalid.", e); }
-        var settings = ExplorerRegParser.Parse(content);
+        var settings = ExplorerRegParser.ParseBytes(bytes);
         var identity = Encoding.UTF8.GetBytes(profile.Sha256 + ":" + Convert.ToHexString(SHA256.HashData(bytes)));
         return profile with { Sha256 = Convert.ToHexString(SHA256.HashData(identity)), ExplorerSettings = settings };
     }
@@ -63,6 +54,20 @@ public static class ExplorerRegParser
     private static readonly Regex Assignment = new("\\A\"(?<name>(?:[^\"\\\\]|\\\\[\"\\\\])*)\"=(?<data>.*)\\z", RegexOptions.Compiled);
     private static readonly Regex Quoted = new("\\A\"(?<value>(?:[^\"\\\\]|\\\\[\"\\\\])*)\"\\z", RegexOptions.Compiled);
     private static readonly Regex DWord = new(@"\Adword:(?<value>[0-9a-fA-F]{8})\z", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    public static IReadOnlyList<ExplorerSetting> ParseBytes(byte[] bytes)
+    {
+        if (bytes.Length is 0 or > 64 * 1024) throw new FormatException("ExplorerPatcher settings file size is invalid.");
+        try
+        {
+            if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
+                return Parse(new UnicodeEncoding(false, true, true).GetString(bytes, 2, bytes.Length - 2));
+            if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+                throw new FormatException("UTF-16 BE ExplorerPatcher settings are unsupported.");
+            var offset = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF ? 3 : 0;
+            return Parse(new UTF8Encoding(false, true).GetString(bytes, offset, bytes.Length - offset));
+        }
+        catch (DecoderFallbackException e) { throw new FormatException("ExplorerPatcher settings encoding is invalid.", e); }
+    }
     public static IReadOnlyList<ExplorerSetting> Parse(string content)
     {
         if (content.Length is 0 or > 64 * 1024) throw new FormatException("ExplorerPatcher settings file size is invalid.");

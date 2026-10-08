@@ -45,6 +45,10 @@ public interface IExecutionStateStore
     Task SaveAsync(ExecutionState state, CancellationToken ct);
 }
 public interface IOperationLogger { void Log(LogEntry entry); }
+public interface IPlanRunner
+{
+    Task<IReadOnlyList<OperationResult>> RunAsync(ExecutionPlan plan, bool dryRun, CancellationToken ct = default);
+}
 
 public static class Planner
 {
@@ -62,7 +66,7 @@ public static class Planner
             var identity = $"registry|{r.Path.ToUpperInvariant()}|{r.Name.ToUpperInvariant()}|{r.Kind}|{r.Value}";
             Add(new PlannedOperation(Id(identity), OperationType.Registry, Phase.Normal, null, r));
         }
-        if (loaded.Profile.ExplorerPatcher?.Enabled == true)
+        if (loaded.Profile.ExplorerPatcher is { Enabled: true, SettingsFile: not null })
         {
             if (loaded.ExplorerSettings is null) throw new FormatException("ExplorerPatcher settings file was not loaded.");
             foreach (var setting in loaded.ExplorerSettings)
@@ -82,7 +86,7 @@ public static class Planner
     private static string Id(string identity) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity))).ToLowerInvariant()[..24];
 }
 
-public sealed class Executor
+public sealed class Executor : IPlanRunner
 {
     private readonly IReadOnlyDictionary<PackageProvider, IPackageProvider> providers;
     private readonly IRegistryAccess registry;

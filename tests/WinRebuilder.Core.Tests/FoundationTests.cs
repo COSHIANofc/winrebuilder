@@ -10,9 +10,9 @@ public sealed class FoundationTests
     [Fact] public void PublicVersionMetadataIsExact()
     {
         var assembly = typeof(Executor).Assembly;
-        Assert.Equal(new Version(0, 2, 0, 0), assembly.GetName().Version);
-        Assert.Equal("0.2.0.0", assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version);
-        Assert.Equal("v.0.2.a-beta", assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+        Assert.Equal(new Version(0, 3, 1, 0), assembly.GetName().Version);
+        Assert.Equal("0.3.1.0", assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version);
+        Assert.Equal("v.0.3.b-beta", assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
     }
     private const string Base = """
         version: 1
@@ -20,19 +20,15 @@ public sealed class FoundationTests
           - name: WizTree
             provider: winget
             id: AntibodySoftware.WizTree
-          - name: ExplorerPatcher
-            provider: github
-            repository: valinet/ExplorerPatcher
-            asset: ep_setup.exe
-            installer: exe
-            silentMode: silent
-            uninstallDisplayName: ExplorerPatcher
-            phase: shell
         registry:
           - path: HKCU\Software\Policies\WinRebuilderTest
             name: Example
             type: DWORD
             value: 1
+        explorerPatcher:
+          enabled: true
+          provider: winget
+          packageId: valinet.ExplorerPatcher
         """;
 
     [Fact] public void ValidYamlAndPhaseOrdering()
@@ -77,7 +73,7 @@ public sealed class FoundationTests
         Assert.Throws<FormatException>(() => ProfileLoader.Load(UrlProfile("https://example.com/a.msi").Replace(new string('a', 64), "abc")));
     }
 
-    [Fact] public void RejectsExplorerPatcherWrongPhase() => Assert.Throws<FormatException>(() => ProfileLoader.Load(Base.Replace("phase: shell", "phase: normal")));
+    [Fact] public void RejectsExplorerPatcherAsOrdinaryPackage() => Assert.Throws<FormatException>(() => ProfileLoader.Load(Base.Replace("  - name: WizTree", "  - name: ExplorerPatcher")));
     [Fact] public void RejectsArbitraryCommandField() => Assert.Throws<FormatException>(() => ProfileLoader.Load(Base.Replace("id: AntibodySoftware.WizTree", "id: AntibodySoftware.WizTree\n    command: evil")));
     [Fact] public void RejectsRegistryOutsidePolicyTree() => Assert.Throws<FormatException>(() => ProfileLoader.Load(RegistryProfile.Replace(@"Software\Policies\Test", @"Software\Microsoft\Windows\CurrentVersion\Run")));
     [Fact] public void RejectsExplicitYamlTag() => Assert.Throws<FormatException>(() => ProfileLoader.Load("version: !!str 1"));

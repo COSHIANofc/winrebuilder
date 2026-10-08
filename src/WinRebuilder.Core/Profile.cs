@@ -16,13 +16,14 @@ public sealed record PackageSpec(string Name, PackageProvider Provider, string? 
     string? Asset, Uri? Url, string? Sha256, InstallerKind? Installer, SilentMode? SilentMode,
     string? UninstallDisplayName, Phase Phase);
 public sealed record RegistrySpec(string Path, string Name, RegistryKind Kind, string Value);
-public sealed record ExplorerPatcherSpec(bool Enabled, string? SettingsFile);
+public sealed record ExplorerPatcherSpec(bool Enabled, string? SettingsFile, string? PackageId = null);
 public sealed record Profile(int Version, IReadOnlyList<PackageSpec> Packages, IReadOnlyList<RegistrySpec> Registry,
     ExplorerPatcherSpec? ExplorerPatcher = null);
 public sealed record LoadedProfile(Profile Profile, string Sha256, IReadOnlyList<ExplorerSetting>? ExplorerSettings = null);
 
 public static class ProfileLoader
 {
+    public const string ExplorerPatcherWingetId = "valinet.ExplorerPatcher";
     private static readonly Regex Hex64 = new("\\A[0-9a-fA-F]{64}\\z", RegexOptions.Compiled);
     private static readonly Regex Repo = new("\\A[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*\\z", RegexOptions.Compiled);
     private static readonly Regex Asset = new("\\A[A-Za-z0-9][A-Za-z0-9._-]*\\z", RegexOptions.Compiled);
@@ -41,29 +42,37 @@ public static class ProfileLoader
         var root = Map(stream.Documents[0].RootNode, "profile", "version", "packages", "registry", "explorerPatcher");
         var version = Scalar(Required(root, "version"), "version");
         if (version != "1") throw new FormatException("Only profile version 1 is supported.");
-        var packages = root.TryGetValue("packages", out var p) ? Sequence(p, "packages").Select(ReadPackage).ToArray() : [];
+        var packages = root.TryGetValue("packages", out var p) ? Sequence(p, "packages").Select(ReadPackage).ToList() : [];
         var registry = root.TryGetValue("registry", out var r) ? Sequence(r, "registry").Select(ReadRegistry).ToArray() : [];
         var explorer = root.TryGetValue("explorerPatcher", out var ep) ? ReadExplorerPatcher(ep) : null;
-        if (explorer?.Enabled == true && !packages.Any(x => x.Name == "ExplorerPatcher" &&
-            x.Provider == PackageProvider.Github && x.Repository == "valinet/ExplorerPatcher" && x.Phase == Phase.Shell))
-            throw new FormatException("Enabled ExplorerPatcher settings require its shell-phase package entry.");
+        if (explorer?.Enabled == true)
+            packages.Add(new PackageSpec("ExplorerPatcher", PackageProvider.Winget, explorer.PackageId,
+                null, null, null, null, null, null, null, Phase.Shell));
+        if (packages.GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase).Any(x => x.Count() > 1) ||
+            packages.Where(x => x.Provider == PackageProvider.Winget)
+                .GroupBy(x => x.Id, StringComparer.OrdinalIgnoreCase).Any(x => x.Count() > 1))
+            throw new FormatException("Duplicate package name or winget package ID.");
         var canonical = yaml.Replace("\r\n", "\n", StringComparison.Ordinal);
         return new LoadedProfile(new Profile(1, packages, registry, explorer), Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))));
     }
 
     private static ExplorerPatcherSpec ReadExplorerPatcher(YamlNode node)
     {
-        var map = Map(node, "explorerPatcher", "enabled", "settingsFile");
+        var map = Map(node, "explorerPatcher", "enabled", "provider", "packageId", "settingsFile");
         var enabled = Get(map, "enabled") switch
         {
             "true" => true, "false" => false,
             _ => throw new FormatException("explorerPatcher.enabled must be true or false.")
         };
         var file = Optional(map, "settingsFile");
-        if (enabled && file is null) throw new FormatException("Enabled ExplorerPatcher requires settingsFile.");
-        if (!enabled && file is not null) throw new FormatException("Disabled ExplorerPatcher cannot specify settingsFile.");
+        var provider = Optional(map, "provider");
+        var packageId = Optional(map, "packageId");
+        if (enabled && (provider != "winget" || packageId != ExplorerPatcherWingetId))
+            throw new FormatException("ExplorerPatcher requires the verified winget package ID valinet.ExplorerPatcher.");
+        if (!enabled && (file is not null || provider is not null || packageId is not null))
+            throw new FormatException("Disabled ExplorerPatcher cannot specify package or settings fields.");
         if (file is not null) ExplorerSettingsPath.Validate(file);
-        return new ExplorerPatcherSpec(enabled, file);
+        return new ExplorerPatcherSpec(enabled, file, packageId);
     }
 
     private static PackageSpec ReadPackage(YamlNode node)
@@ -103,11 +112,10 @@ public static class ProfileLoader
             if (provider == PackageProvider.Url && (uri is null || repository is not null || asset is not null || hash is null))
                 throw new FormatException("url requires HTTPS url and sha256.");
         }
-        if (name.Equals("ExplorerPatcher", StringComparison.OrdinalIgnoreCase) || repository?.Equals("valinet/ExplorerPatcher", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            if (provider != PackageProvider.Github || repository != "valinet/ExplorerPatcher" || phase != Phase.Shell || asset != "ep_setup.exe")
-                throw new FormatException("ExplorerPatcher requires official GitHub source, ep_setup.exe and shell phase.");
-        }
+        if (name.Equals("ExplorerPatcher", StringComparison.OrdinalIgnoreCase) ||
+            repository?.Equals("valinet/ExplorerPatcher", StringComparison.OrdinalIgnoreCase) == true ||
+            id?.Equals(ExplorerPatcherWingetId, StringComparison.OrdinalIgnoreCase) == true)
+            throw new FormatException("Configure ExplorerPatcher only through explorerPatcher with its verified winget ID.");
         if (phase == Phase.Shell && provider == PackageProvider.Winget) throw new FormatException("Shell packages must use an explicit verified download source.");
         return new PackageSpec(name, provider, id, repository, asset, uri, hash, installer, silent, detection, phase);
     }

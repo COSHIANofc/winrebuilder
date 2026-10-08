@@ -16,6 +16,7 @@ Development is performed primarily on macOS.
 The final application runs on Windows 11.
 
 `config.yml` is the canonical user configuration. `config.example.yml` is the conservative release example.
+The WPF GUI edits `config.yml` through WinRebuilder.Core; CLI, GUI, planner and executor use that same model.
 The public version is the exact `InformationalVersion` in `Directory.Build.props`; `Version`, `AssemblyVersion`, and `FileVersion` stay numeric.
 
 ## Priorities
@@ -138,6 +139,9 @@ It must:
 - run in the shell/final phase
 - never run before ordinary package installation
 - be installed through its verified winget package
+- verify the Microsoft winget-pkgs manifest, package metadata, and installer URL before using the ID
+- require its installer to resolve to the official `valinet/ExplorerPatcher` GitHub Releases infrastructure
+- fail safely if the installed winget manifest does not match the verified source and hash
 - use exact package identity and the existing WinRebuilder winget provider
 - retain post-install package verification
 - not rely on undocumented registry assumptions
@@ -145,7 +149,7 @@ It must:
 
 Do not use the GitHub Releases provider as the normal ExplorerPatcher installation method.
 
-The ExplorerPatcher winget package ID must be verified against a reliable source before being hardcoded or included in the default configuration. Do not guess package identifiers.
+The ExplorerPatcher winget package ID must be verified against Microsoft winget-pkgs before being hardcoded or included in the default configuration. Do not guess package identifiers or silently fall back to a direct download.
 
 ExplorerPatcher `.reg` restoration is a special-purpose, strict, allowlisted parser.
 
@@ -192,9 +196,11 @@ Do not store arbitrary absolute, UNC, device, or traversal paths in configuratio
 
 WinRebuilder release artifacts target Windows 11 x64.
 
+The terminal command is `wrb`, a local command alias only. It invokes the WinRebuilder-branded CLI binary. Do not publish `wrb.exe` or rename WinRebuilder binaries to `wrb`.
+
 The command-line executable is:
 
-`wrb.exe`
+`WinRebuilder.Cli.exe`
 
 The graphical application executable is:
 
@@ -230,8 +236,8 @@ Release assets should include the required executable artifacts and conservative
 
 For the current architecture, expected release artifacts include at least:
 
-- `wrb.exe`
-- `wrb.exe.sha256`
+- `WinRebuilder.Cli.exe`
+- `WinRebuilder.Cli.exe.sha256`
 - `WinRebuilder.exe`
 - `WinRebuilder.exe.sha256`
 - `config.example.yml`
@@ -267,6 +273,7 @@ Use fakes or mocks for Windows dependencies in Core tests.
 ## Git
 
 Do not commit or push unless the user explicitly asks.
+For authorized successful implementation tasks, commit and push after all required local validation passes.
 When authorized to release: validate locally, inspect the staged diff, push main, then push the matching annotated version tag; verify the GitHub Actions release and assets. Never bypass failed validation.
 
 Do not modify unrelated files.

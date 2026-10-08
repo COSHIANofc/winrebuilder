@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType><AssemblyName>winrebuilder</AssemblyName></PropertyGroup>
+  <PropertyGroup><OutputType>Exe</OutputType><AssemblyName>WinRebuilder.Cli</AssemblyName></PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../WinRebuilder.Core/WinRebuilder.Core.csproj" />
     <ProjectReference Include="../WinRebuilder.Windows/WinRebuilder.Windows.csproj" />

@@ -13,14 +13,6 @@ public sealed class ExplorerSettingsTests
           - name: 7-Zip
             provider: winget
             id: 7zip.7zip
-          - name: ExplorerPatcher
-            provider: github
-            repository: valinet/ExplorerPatcher
-            asset: ep_setup.exe
-            installer: exe
-            silentMode: silent
-            uninstallDisplayName: ExplorerPatcher
-            phase: shell
         registry:
           - path: HKCU\Software\Policies\WinRebuilderTests
             name: Example
@@ -28,6 +20,8 @@ public sealed class ExplorerSettingsTests
             value: 1
         explorerPatcher:
           enabled: true
+          provider: winget
+          packageId: valinet.ExplorerPatcher
           settingsFile: settings/explorerpatcher.reg
         """;
 
@@ -133,7 +127,7 @@ public sealed class ExplorerSettingsTests
             var fake = new Fake { Installed = true };
             fake.Values[(Key, "OldTaskbar")] = RegistryValue.FromDWord(2);
             fake.Values[(Key, "Unrelated")] = RegistryValue.FromString("keep");
-            var executor = new Executor([fake, new GithubFake()], fake, fake, fake, fake, "v.0.2.a-beta", explorerRegistry: fake);
+            var executor = new Executor([fake, new GithubFake()], fake, fake, fake, fake, "v.0.3.b-beta", explorerRegistry: fake);
             var applied = await executor.RunAsync(plan, false);
             Assert.Equal(Outcome.Change, applied[^1].Outcome);
             Assert.False(fake.Values.ContainsKey((Key, "OldTaskbar")));
@@ -154,7 +148,7 @@ public sealed class ExplorerSettingsTests
         {
             var plan = Planner.Create(await ConfigLoader.LoadAsync(path));
             var fake = new Fake { Installed = true, FailBackupAt = 3 };
-            var executor = new Executor([fake, new GithubFake()], fake, fake, fake, fake, "v.0.2.a-beta", explorerRegistry: fake);
+            var executor = new Executor([fake, new GithubFake()], fake, fake, fake, fake, "v.0.3.b-beta", explorerRegistry: fake);
             var results = await executor.RunAsync(plan, false);
             Assert.Equal(Outcome.Fail, results[^1].Outcome);
             Assert.Null(fake.BackupsAtFirstExplorerWrite);
@@ -169,7 +163,7 @@ public sealed class ExplorerSettingsTests
         {
             var plan = Planner.Create(await ConfigLoader.LoadAsync(path));
             var fake = new Fake();
-            var executor = new Executor([fake, new GithubFake()], fake, fake, fake, fake, "v.0.2.a-beta", explorerRegistry: fake);
+            var executor = new Executor([fake, new GithubFake()], fake, fake, fake, fake, "v.0.3.b-beta", explorerRegistry: fake);
             var dry = await executor.RunAsync(plan, true);
             Assert.Contains(dry, x => x.Type == OperationType.ExplorerPatcherSetting && x.Outcome == Outcome.Change);
             Assert.Equal(0, fake.Mutations);
@@ -190,7 +184,7 @@ public sealed class ExplorerSettingsTests
         Assert.Throws<FormatException>(() => ProfileLoader.Load(Config.Replace("enabled: true", "enabled: yes")));
         Assert.Throws<FormatException>(() => ProfileLoader.Load(Config + "\nunknown: true"));
         Assert.Throws<FormatException>(() => ProfileLoader.Load(Config.Replace("settingsFile: settings/explorerpatcher.reg", "settingsFile: ../evil.reg")));
-        Assert.Throws<FormatException>(() => ProfileLoader.Load(Config.Replace("  - name: ExplorerPatcher", "  - name: Other")));
+        Assert.Throws<FormatException>(() => ProfileLoader.Load(Config.Replace("packageId: valinet.ExplorerPatcher", "packageId: Other.Package")));
     }
 
     private static async Task WithConfig(string reg, Func<string, Task> action)

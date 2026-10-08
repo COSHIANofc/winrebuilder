@@ -1,8 +1,8 @@
-WinRebuilder v.0.2.a-beta is an early beta build. Windows-specific behavior is still being validated.
+WinRebuilder v.0.3.b-beta adds a native WPF interface and a `wrb` terminal alias while keeping WinRebuilder-branded executables.
 
-- Manage applications and settings through `config.yml` using winget, GitHub releases, or pinned HTTPS URLs.
-- Restore a supported, allowlisted subset of ExplorerPatcher `.reg` settings after the shell-phase package.
-- Back up and verify registry changes, then restore a selected value with `winrebuilder rollback`.
-- Download a self-contained, single-file `winrebuilder.exe` for Windows x64.
+- Edit `config.yml` through the GUI; add or remove winget software, install selected or all configured packages, and view results.
+- Install ExplorerPatcher through a pinned, source-verified winget manifest; optionally validate and apply its allowlisted `.reg` settings.
+- Back up and verify registry changes, with one-value rollback via `wrb rollback`.
+- Download both self-contained Windows x64 executables, SHA-256 files, `wrb.cmd`, and `config.example.yml` into one folder.
 
-Review `config.example.yml` and the README before applying changes. ExplorerPatcher key deletions and virtualized settings are not supported by this importer.
+Review the default 7-Zip, CrystalDiskInfo, and ExplorerPatcher configuration before applying. Windows runtime behavior still requires testing on a disposable Windows 11 machine.
