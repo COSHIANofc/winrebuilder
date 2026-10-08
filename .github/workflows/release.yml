@@ -1,0 +1,64 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v.*'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet restore WinRebuilder.slnx
+      - run: dotnet build WinRebuilder.slnx --no-restore -c Release
+      - run: dotnet test WinRebuilder.slnx --no-build -c Release
+      - name: Validate tag and public version
+        shell: pwsh
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          [xml]$props = Get-Content Directory.Build.props
+          $version = $props.Project.PropertyGroup.InformationalVersion
+          if ($env:TAG_NAME -ne $version) { throw "Tag does not match the public version." }
+          $actual = dotnet run --no-build -c Release --project src/WinRebuilder.Cli -- --version
+          if ($actual.Trim() -ne "WinRebuilder $version") { throw "CLI public version mismatch." }
+      - name: Validate release example
+        run: dotnet run --no-build -c Release --project src/WinRebuilder.Cli -- validate config.example.yml
+  release:
+    needs: validate
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Publish Windows executable
+        run: dotnet publish src/WinRebuilder.Cli/WinRebuilder.Cli.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:DebugType=None -p:DebugSymbols=false
+      - name: Verify executable and compute SHA-256
+        shell: pwsh
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          [xml]$props = Get-Content Directory.Build.props
+          if ($env:TAG_NAME -ne $props.Project.PropertyGroup.InformationalVersion) { throw "Tag does not match the public version." }
+          $exe = 'src/WinRebuilder.Cli/bin/Release/net10.0/win-x64/publish/winrebuilder.exe'
+          if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw 'Expected executable is missing.' }
+          if ((Get-Item -LiteralPath $exe).Length -le 0) { throw 'Executable is empty.' }
+          New-Item -ItemType Directory -Path release-assets -Force | Out-Null
+          Copy-Item -LiteralPath $exe -Destination release-assets/winrebuilder.exe
+          Copy-Item -LiteralPath config.example.yml -Destination release-assets/config.example.yml
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath release-assets/winrebuilder.exe).Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText('release-assets/winrebuilder.exe.sha256', "$hash  winrebuilder.exe`n", [Text.UTF8Encoding]::new($false))
+      - name: Create prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          gh release create $env:TAG_NAME release-assets/winrebuilder.exe release-assets/winrebuilder.exe.sha256 release-assets/config.example.yml --verify-tag --title "WinRebuilder $env:TAG_NAME" --notes-file .github/release-notes.md --prerelease --latest=false

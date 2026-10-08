@@ -1,0 +1,6 @@
+# Copy to config.yml and add only packages and settings you have reviewed.
+version: 1
+packages: []
+registry: []
+explorerPatcher:
+  enabled: false

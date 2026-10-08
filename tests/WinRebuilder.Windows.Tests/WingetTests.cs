@@ -244,11 +244,14 @@ public sealed class WingetTests
     private sealed class NoopRegistry : IRegistryAccess
     {
         public Task<RegistryValue> ReadAsync(string path, string name, CancellationToken ct) => throw new Xunit.Sdk.XunitException("registry queried");
-        public Task WriteAsync(string path, string name, RegistryKind kind, string value, CancellationToken ct) => throw new Xunit.Sdk.XunitException("registry written");
+        public Task WriteAsync(string path, string name, RegistryValue value, CancellationToken ct) => throw new Xunit.Sdk.XunitException("registry written");
+        public Task DeleteValueAsync(string path, string name, CancellationToken ct) => throw new Xunit.Sdk.XunitException("registry value deleted");
     }
     private sealed class NoopBackup : IRegistryBackupStore
     {
         public Task SaveAsync(RegistryBackup backup, CancellationToken ct) => throw new Xunit.Sdk.XunitException("backup written");
+        public Task<RegistryBackup> LoadAsync(string backupId, CancellationToken ct) => throw new Xunit.Sdk.XunitException("backup loaded");
+        public Task<IReadOnlyList<RegistryBackup>> ListAsync(CancellationToken ct) => throw new Xunit.Sdk.XunitException("backups listed");
     }
     private sealed class NoopLogger : IOperationLogger { public void Log(LogEntry entry) { } }
     private sealed class MemoryState : IExecutionStateStore

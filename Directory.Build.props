@@ -1,10 +1,10 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
-    <InformationalVersion>v.0.1.a-beta</InformationalVersion>
+    <Version>0.2.0</Version>
+    <AssemblyVersion>0.2.0.0</AssemblyVersion>
+    <FileVersion>0.2.0.0</FileVersion>
+    <InformationalVersion>v.0.2.a-beta</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -10,9 +10,9 @@ public sealed class FoundationTests
     [Fact] public void PublicVersionMetadataIsExact()
     {
         var assembly = typeof(Executor).Assembly;
-        Assert.Equal(new Version(0, 1, 0, 0), assembly.GetName().Version);
-        Assert.Equal("0.1.0.0", assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version);
-        Assert.Equal("v.0.1.a-beta", assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+        Assert.Equal(new Version(0, 2, 0, 0), assembly.GetName().Version);
+        Assert.Equal("0.2.0.0", assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version);
+        Assert.Equal("v.0.2.a-beta", assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
     }
     private const string Base = """
         version: 1
@@ -123,7 +123,7 @@ public sealed class FoundationTests
     }
     [Fact] public async Task MatchingRegistrySkips()
     {
-        var f = new Fake { Value = new(true, RegistryKind.DWord, "1") };
+        var f = new Fake { Value = RegistryValue.FromDWord(1) };
         var results = await f.Run(RegistryProfile, false);
         Assert.Equal(Outcome.Skip, results.Single().Outcome);
         Assert.Equal(0, f.Writes);
@@ -131,12 +131,12 @@ public sealed class FoundationTests
     }
     [Fact] public async Task DifferingRegistryChangesWithBackup()
     {
-        var f = new Fake { Value = new(true, RegistryKind.DWord, "2") };
+        var f = new Fake { Value = RegistryValue.FromDWord(2) };
         var results = await f.Run(RegistryProfile, false);
         Assert.Equal(Outcome.Change, results.Single().Outcome);
         Assert.Equal(1, f.Writes);
         Assert.Equal(1, f.Backups);
-        Assert.Equal("2", f.LastBackup?.Previous.Value);
+        Assert.Equal((uint)2, f.LastBackup?.Previous.DWord);
         Assert.True(f.BackupBeforeWrite);
     }
     [Fact] public async Task FailedBackupPreventsRegistryWrite()
@@ -156,7 +156,7 @@ public sealed class FoundationTests
     }
     [Fact] public async Task DryRunDoesNotMutateOrPersist()
     {
-        var f = new Fake { Value = new(false, null, null) };
+        var f = new Fake { Value = RegistryValue.Missing };
         var results = await f.Run("version: 1\npackages:\n  - name: A\n    provider: winget\n    id: A.B\n" + RegistryProfile["version: 1\n".Length..], true);
         Assert.Equal([Outcome.Install, Outcome.Change], results.Select(x => x.Outcome));
         Assert.Equal(0, f.Installs);
@@ -171,15 +171,19 @@ public sealed class FoundationTests
     private sealed class Fake : IPackageProvider, IRegistryAccess, IRegistryBackupStore, IExecutionStateStore, IOperationLogger
     {
         public PackageProvider Kind => PackageProvider.Winget;
-        public bool Installed; public RegistryValue Value = new(false, null, null);
+        public bool Installed; public RegistryValue Value = RegistryValue.Missing;
         public int Installs, Writes, Backups, StateReads, StateWrites; public bool BackupBeforeWrite, BackupFails;
         public RegistryBackup? LastBackup;
         public Task<bool> IsInstalledAsync(PackageSpec package, CancellationToken ct) => Task.FromResult(Installed);
         public Task InstallAsync(PackageSpec package, CancellationToken ct) { Installs++; Installed = true; return Task.CompletedTask; }
         public Task<RegistryValue> ReadAsync(string path, string name, CancellationToken ct) => Task.FromResult(Value);
-        public Task WriteAsync(string path, string name, RegistryKind kind, string value, CancellationToken ct)
-        { BackupBeforeWrite = Backups == 1; Writes++; Value = new(true, kind, value); return Task.CompletedTask; }
+        public Task WriteAsync(string path, string name, RegistryValue value, CancellationToken ct)
+        { BackupBeforeWrite = Backups == 1; Writes++; Value = value; return Task.CompletedTask; }
+        public Task DeleteValueAsync(string path, string name, CancellationToken ct)
+        { Value = RegistryValue.Missing; return Task.CompletedTask; }
         public Task SaveAsync(RegistryBackup backup, CancellationToken ct) { if (BackupFails) throw new IOException("backup failed"); Backups++; LastBackup = backup; return Task.CompletedTask; }
+        Task<RegistryBackup> IRegistryBackupStore.LoadAsync(string backupId, CancellationToken ct) => Task.FromResult(LastBackup!);
+        public Task<IReadOnlyList<RegistryBackup>> ListAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<RegistryBackup>>(LastBackup is null ? [] : [LastBackup]);
         public Task<ExecutionState?> LoadAsync(string hash, CancellationToken ct) { StateReads++; return Task.FromResult<ExecutionState?>(null); }
         public Task SaveAsync(ExecutionState state, CancellationToken ct) { StateWrites++; return Task.CompletedTask; }
         public void Log(LogEntry entry) { }

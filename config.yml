@@ -1,0 +1,15 @@
+# Edit this file to select applications before running apply.
+version: 1
+packages:
+  - name: 7-Zip
+    provider: winget
+    id: 7zip.7zip
+  - name: WizTree
+    provider: winget
+    id: AntibodySoftware.WizTree
+  - name: Visual Studio Code
+    provider: winget
+    id: Microsoft.VisualStudioCode
+registry: []
+explorerPatcher:
+  enabled: false

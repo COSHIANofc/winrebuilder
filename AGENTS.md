@@ -15,6 +15,9 @@ Its purpose is to automate post-clean-install setup, including:
 Development is performed primarily on macOS.
 The final application runs on Windows 11.
 
+`config.yml` is the canonical user configuration. `config.example.yml` is the conservative release example.
+The public version is the exact `InformationalVersion` in `Directory.Build.props`; `Version`, `AssemblyVersion`, and `FileVersion` stay numeric.
+
 ## Priorities
 
 In order of importance:
@@ -137,6 +140,10 @@ It must:
 - use the official GitHub repository as its source
 - not rely on undocumented registry assumptions
 
+ExplorerPatcher `.reg` restoration is a special-purpose, strict, allowlisted parser. Never add a generic `.reg` import or invoke `regedit`, `reg.exe`, or PowerShell. Reject the complete file before mutation if a setting is unsupported or unsafe. Keep the normal `registry:` Policies allowlist separate.
+
+Release executables are self-contained single-file `win-x64` builds with trimming disabled. The tag-release workflow must validate the tag against the public version before publishing, use only `GITHUB_TOKEN` with job-scoped `contents: write`, and upload the EXE, checksum, and conservative config example.
+
 ## Dry run
 
 Dry-run behavior is a first-class feature.
@@ -166,6 +173,7 @@ Use fakes or mocks for Windows dependencies in Core tests.
 ## Git
 
 Do not commit or push unless the user explicitly asks.
+When authorized to release: validate locally, inspect the staged diff, push main, then push the matching annotated version tag; verify the GitHub Actions release and assets. Never bypass failed validation.
 
 Do not modify unrelated files.
 

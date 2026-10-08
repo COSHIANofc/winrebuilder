@@ -3,13 +3,12 @@ using System.Text;
 
 namespace WinRebuilder.Core;
 
-public enum OperationType { Package, Registry }
-public enum Outcome { Install, Change, Skip, Fail, Warning }
-public sealed record PlannedOperation(string Id, OperationType Type, Phase Phase, PackageSpec? Package, RegistrySpec? Registry);
+public enum OperationType { Package, Registry, ExplorerPatcherSetting }
+public enum Outcome { Install, Change, Restore, Skip, Fail, Warning }
+public sealed record PlannedOperation(string Id, OperationType Type, Phase Phase, PackageSpec? Package, RegistrySpec? Registry,
+    ExplorerSetting? ExplorerSetting = null);
 public sealed record ExecutionPlan(string ProfileHash, IReadOnlyList<PlannedOperation> Operations);
 public sealed record OperationResult(string OperationId, OperationType Type, Outcome Outcome, DateTimeOffset Timestamp, string Message);
-public sealed record RegistryValue(bool Exists, RegistryKind? Kind, string? Value);
-public sealed record RegistryBackup(string OperationId, string Path, string Name, RegistryValue Previous, DateTimeOffset Timestamp);
 public sealed record ExecutionState(string ProfileHash, string ApplicationVersion,
     Dictionary<string, DateTimeOffset> Completed, Dictionary<string, DateTimeOffset> Failed);
 public sealed record LogEntry(DateTimeOffset Timestamp, string OperationId, OperationType Type, Outcome Outcome, string Message);
@@ -17,9 +16,16 @@ public sealed record LogEntry(DateTimeOffset Timestamp, string OperationId, Oper
 public interface IRegistryAccess
 {
     Task<RegistryValue> ReadAsync(string path, string name, CancellationToken ct);
-    Task WriteAsync(string path, string name, RegistryKind kind, string value, CancellationToken ct);
+    Task WriteAsync(string path, string name, RegistryValue value, CancellationToken ct);
+    Task DeleteValueAsync(string path, string name, CancellationToken ct);
 }
-public interface IRegistryBackupStore { Task SaveAsync(RegistryBackup backup, CancellationToken ct); }
+public interface IExplorerRegistryAccess : IRegistryAccess { }
+public interface IRegistryBackupStore
+{
+    Task SaveAsync(RegistryBackup backup, CancellationToken ct);
+    Task<RegistryBackup> LoadAsync(string backupId, CancellationToken ct);
+    Task<IReadOnlyList<RegistryBackup>> ListAsync(CancellationToken ct);
+}
 public interface IPackageProvider
 {
     PackageProvider Kind { get; }
@@ -56,6 +62,16 @@ public static class Planner
             var identity = $"registry|{r.Path.ToUpperInvariant()}|{r.Name.ToUpperInvariant()}|{r.Kind}|{r.Value}";
             Add(new PlannedOperation(Id(identity), OperationType.Registry, Phase.Normal, null, r));
         }
+        if (loaded.Profile.ExplorerPatcher?.Enabled == true)
+        {
+            if (loaded.ExplorerSettings is null) throw new FormatException("ExplorerPatcher settings file was not loaded.");
+            foreach (var setting in loaded.ExplorerSettings)
+            {
+                var target = setting.Target;
+                var identity = $"explorer-setting|{setting.Path.ToUpperInvariant()}|{setting.Name.ToUpperInvariant()}|{target.Exists}|{target.Kind}|{target.DWord}|{target.Text}";
+                Add(new PlannedOperation(Id(identity), OperationType.ExplorerPatcherSetting, Phase.Shell, null, null, setting));
+            }
+        }
         return new ExecutionPlan(loaded.Sha256, result.OrderBy(x => x.Phase).ThenBy(x => x.Type).ToArray());
         void Add(PlannedOperation op)
         {
@@ -73,15 +89,18 @@ public sealed class Executor
     private readonly IRegistryBackupStore backups;
     private readonly IExecutionStateStore states;
     private readonly IOperationLogger logger;
+    private readonly IExplorerRegistryAccess? explorerRegistry;
     private readonly TimeProvider clock;
     private readonly string appVersion;
 
     public Executor(IEnumerable<IPackageProvider> providers, IRegistryAccess registry, IRegistryBackupStore backups,
-        IExecutionStateStore states, IOperationLogger logger, string appVersion, TimeProvider? clock = null)
+        IExecutionStateStore states, IOperationLogger logger, string appVersion, TimeProvider? clock = null,
+        IExplorerRegistryAccess? explorerRegistry = null)
     {
         this.providers = providers.ToDictionary(x => x.Kind);
         this.registry = registry; this.backups = backups; this.states = states; this.logger = logger;
         this.appVersion = appVersion; this.clock = clock ?? TimeProvider.System;
+        this.explorerRegistry = explorerRegistry;
     }
 
     public async Task<IReadOnlyList<OperationResult>> RunAsync(ExecutionPlan plan, bool dryRun, CancellationToken ct = default)
@@ -89,21 +108,32 @@ public sealed class Executor
         var state = dryRun ? null : await states.LoadAsync(plan.ProfileHash, ct);
         state ??= new ExecutionState(plan.ProfileHash, appVersion, new(), new());
         var results = new List<OperationResult>();
+        Dictionary<string, (RegistryValue Previous, RegistryBackup? Backup)>? preparedExplorer = null;
         foreach (var op in plan.Operations)
         {
             ct.ThrowIfCancellationRequested();
             OperationResult result;
             try
             {
-                result = op.Type == OperationType.Package
-                    ? await PackageAsync(op, dryRun, ct)
-                    : await RegistryAsync(op, dryRun, ct);
+                if (op.Type == OperationType.ExplorerPatcherSetting && !dryRun && preparedExplorer is null)
+                    preparedExplorer = await PrepareExplorerAsync(plan, ct);
+                result = op.Type switch
+                {
+                    OperationType.Package => await PackageAsync(op, dryRun, ct),
+                    OperationType.Registry => await RegistryAsync(op, plan.ProfileHash, dryRun, ct),
+                    OperationType.ExplorerPatcherSetting => await ExplorerSettingAsync(op, plan.ProfileHash, dryRun, preparedExplorer, ct),
+                    _ => throw new InvalidOperationException("Unknown operation type.")
+                };
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception e)
             {
                 // Provider errors are curated; unexpected exception messages can contain remote URLs or profile data.
                 var message = e is InvalidOperationException ? e.Message : $"{e.GetType().Name} during operation.";
+                if (op.Registry is { } registryTarget)
+                    message = $"{registryTarget.Path}\\{registryTarget.Name}: {message}";
+                if (op.ExplorerSetting is { } explorerTarget)
+                    message = $"{explorerTarget.Path}\\{explorerTarget.Name}: {message}";
                 result = new OperationResult(op.Id, op.Type, Outcome.Fail, clock.GetUtcNow(), message);
             }
             results.Add(result);
@@ -140,21 +170,127 @@ public sealed class Executor
         OperationResult Result(Outcome outcome, string message) => new(op.Id, op.Type, outcome, clock.GetUtcNow(), message);
     }
 
-    private async Task<OperationResult> RegistryAsync(PlannedOperation op, bool dryRun, CancellationToken ct)
+    private async Task<OperationResult> RegistryAsync(PlannedOperation op, string profileHash, bool dryRun, CancellationToken ct)
     {
         var target = op.Registry!;
-        var old = await registry.ReadAsync(target.Path, target.Name, ct);
-        if (old.Exists && old.Kind == target.Kind && old.Value == target.Value)
-            return Result(Outcome.Skip, "Value already matches.");
+        return await RegistryChangeAsync(op, profileHash, target.Path, target.Name, RegistryValue.ForTarget(target),
+            RegistryScope.Generic, registry, dryRun, ct);
+    }
+
+    private async Task<OperationResult> ExplorerSettingAsync(PlannedOperation op, string profileHash, bool dryRun,
+        Dictionary<string, (RegistryValue Previous, RegistryBackup? Backup)>? prepared, CancellationToken ct)
+    {
+        var target = op.ExplorerSetting!;
+        if (explorerRegistry is null) throw new InvalidOperationException("ExplorerPatcher registry adapter unavailable.");
+        if (dryRun)
+            return await RegistryChangeAsync(op, profileHash, target.Path, target.Name, target.Target,
+                RegistryScope.ExplorerPatcher, explorerRegistry, true, ct);
+        var (previous, backup) = prepared![op.Id];
+        if (backup is null)
+        {
+            if (await explorerRegistry.ReadAsync(target.Path, target.Name, ct) != previous)
+                throw new InvalidOperationException("ExplorerPatcher registry state changed after inspection; no write was made.");
+            return new OperationResult(op.Id, op.Type, Outcome.Skip, clock.GetUtcNow(), $"{target.Path}\\{target.Name}: value already matches.");
+        }
+        try
+        {
+            if (await explorerRegistry.ReadAsync(target.Path, target.Name, ct) != previous)
+                throw new InvalidOperationException("Registry value changed after backup; no write was made.");
+            if (target.Target.Exists) await explorerRegistry.WriteAsync(target.Path, target.Name, target.Target, ct);
+            else await explorerRegistry.DeleteValueAsync(target.Path, target.Name, ct);
+            if (await explorerRegistry.ReadAsync(target.Path, target.Name, ct) != target.Target)
+                throw new InvalidOperationException("Registry verification failed.");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception e)
+        {
+            throw new InvalidOperationException($"Registry change failed for {target.Path}\\{target.Name}; backup {backup.BackupId} was preserved.", e);
+        }
+        return new OperationResult(op.Id, op.Type, Outcome.Change, clock.GetUtcNow(),
+            $"Changed {target.Path}\\{target.Name}; verified. Backup: {backup.BackupId}.");
+    }
+
+    private async Task<Dictionary<string, (RegistryValue Previous, RegistryBackup? Backup)>> PrepareExplorerAsync(
+        ExecutionPlan plan, CancellationToken ct)
+    {
+        if (explorerRegistry is null) throw new InvalidOperationException("ExplorerPatcher registry adapter unavailable.");
+        var prepared = new Dictionary<string, (RegistryValue Previous, RegistryBackup? Backup)>(StringComparer.Ordinal);
+        foreach (var op in plan.Operations.Where(x => x.Type == OperationType.ExplorerPatcherSetting))
+        {
+            var setting = op.ExplorerSetting!;
+            ExplorerRegistryPolicy.ValidateValue(setting.Path, setting.Name);
+            setting.Target.Validate();
+            var previous = await explorerRegistry.ReadAsync(setting.Path, setting.Name, ct);
+            prepared.Add(op.Id, (previous, null));
+        }
+        foreach (var op in plan.Operations.Where(x => x.Type == OperationType.ExplorerPatcherSetting))
+        {
+            var setting = op.ExplorerSetting!;
+            var previous = prepared[op.Id].Previous;
+            if (previous == setting.Target) continue;
+            var location = ExplorerRegistryPolicy.Parse(setting.Path);
+            var backup = new RegistryBackup(1, RegistryBackupId.Create(), plan.ProfileHash, appVersion, op.Id,
+                clock.GetUtcNow(), location.Hive, location.KeyPath, RegistryViewKind.Registry64,
+                setting.Name, previous, setting.Target, RegistryScope.ExplorerPatcher);
+            backup.Validate();
+            await backups.SaveAsync(backup, ct);
+            if (await backups.LoadAsync(backup.BackupId, ct) != backup)
+                throw new InvalidOperationException($"Backup {backup.BackupId} could not be verified; registry was not modified.");
+            prepared[op.Id] = (previous, backup);
+        }
+        foreach (var op in plan.Operations.Where(x => x.Type == OperationType.ExplorerPatcherSetting))
+        {
+            var setting = op.ExplorerSetting!;
+            if (await explorerRegistry.ReadAsync(setting.Path, setting.Name, ct) != prepared[op.Id].Previous)
+                throw new InvalidOperationException("ExplorerPatcher registry state changed after backup; no write was made.");
+        }
+        return prepared;
+    }
+
+    private async Task<OperationResult> RegistryChangeAsync(PlannedOperation op, string profileHash, string path, string name,
+        RegistryValue desired, RegistryScope scope, IRegistryAccess access, bool dryRun, CancellationToken ct)
+    {
+        var old = await access.ReadAsync(path, name, ct);
+        if (old == desired)
+            return Result(Outcome.Skip, $"{path}\\{name}: value already matches.");
+        string? backupId = null;
         if (!dryRun)
         {
-            await backups.SaveAsync(new RegistryBackup(op.Id, target.Path, target.Name, old, clock.GetUtcNow()), ct);
-            await registry.WriteAsync(target.Path, target.Name, target.Kind, target.Value, ct);
-            var actual = await registry.ReadAsync(target.Path, target.Name, ct);
-            if (!actual.Exists || actual.Kind != target.Kind || actual.Value != target.Value)
-                throw new InvalidOperationException("Registry verification failed; recovery backup was preserved.");
+            var location = scope == RegistryScope.Generic ? RegistryPathPolicy.Parse(path) : ExplorerRegistryPolicy.Parse(path);
+            var backup = new RegistryBackup(1, RegistryBackupId.Create(), profileHash, appVersion, op.Id,
+                clock.GetUtcNow(), location.Hive, location.KeyPath, RegistryViewKind.Registry64, name, old, desired, scope);
+            backup.Validate();
+            await backups.SaveAsync(backup, ct);
+            backupId = backup.BackupId;
+            try
+            {
+                var persisted = await backups.LoadAsync(backupId, ct);
+                if (persisted != backup) throw new InvalidOperationException("Backup content changed during persistence.");
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception e)
+            {
+                throw new InvalidOperationException($"Backup {backupId} could not be verified; registry was not modified.", e);
+            }
+            try
+            {
+                var beforeWrite = await access.ReadAsync(path, name, ct);
+                if (beforeWrite != old)
+                    throw new InvalidOperationException("Registry value changed after backup; no write was made.");
+                if (desired.Exists) await access.WriteAsync(path, name, desired, ct);
+                else await access.DeleteValueAsync(path, name, ct);
+                var actual = await access.ReadAsync(path, name, ct);
+                if (actual != desired)
+                    throw new InvalidOperationException("Registry verification failed.");
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception e)
+            {
+                throw new InvalidOperationException($"Registry change failed for {path}\\{name}; backup {backupId} was preserved.", e);
+            }
         }
-        return Result(Outcome.Change, dryRun ? "Would change registry value." : "Registry value changed and verified.");
+        return Result(Outcome.Change, dryRun ? $"Would change {path}\\{name}." :
+            $"Changed {path}\\{name}; verified. Backup: {backupId}.");
         OperationResult Result(Outcome outcome, string message) => new(op.Id, op.Type, outcome, clock.GetUtcNow(), message);
     }
 }

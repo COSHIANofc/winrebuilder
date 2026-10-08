@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.ComponentModel;
-using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -16,7 +15,7 @@ namespace WinRebuilder.Windows;
 public static class WindowsPaths
 {
     public static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "WinRebuilder");
-    public static string Backups => Path.Combine(Root, "registry-backups");
+    public static string Backups => Path.Combine(Root, "backups");
     public static string Artifacts => Path.Combine(Root, "artifacts");
     public static string States => Path.Combine(Root, "state");
 }
@@ -93,46 +92,138 @@ public sealed class WindowsProcessRunner : IProcessRunner
 }
 public sealed class WindowsRegistry : IRegistryAccess
 {
-    public Task<RegistryValue> ReadAsync(string path, string name, CancellationToken ct)
+    public Task<RegistryValue> ReadAsync(string path, string name, CancellationToken ct) =>
+        ReadCore(path, name, ct, RegistryPathPolicy.Parse);
+    public Task WriteAsync(string path, string name, RegistryValue value, CancellationToken ct) =>
+        WriteCore(path, name, value, ct, RegistryPathPolicy.Parse);
+    public Task DeleteValueAsync(string path, string name, CancellationToken ct) =>
+        DeleteCore(path, name, ct, RegistryPathPolicy.Parse);
+
+    internal static Task<RegistryValue> ReadCore(string path, string name, CancellationToken ct, Func<string, RegistryLocation> parse)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
         ct.ThrowIfCancellationRequested();
-        var (hive, subkey) = Split(path);
-        using var key = hive.OpenSubKey(subkey, false);
+        RegistryPathPolicy.ValidateName(name);
+        var location = parse(path);
+        using var hive = OpenHive(location.Hive);
+        using var key = hive.OpenSubKey(location.KeyPath, false);
         if (key is null || !key.GetValueNames().Contains(name, StringComparer.OrdinalIgnoreCase))
-            return Task.FromResult(new RegistryValue(false, null, null));
+            return Task.FromResult(RegistryValue.Missing);
         var kind = key.GetValueKind(name);
         var value = key.GetValue(name, null, RegistryValueOptions.DoNotExpandEnvironmentNames);
         return Task.FromResult(kind switch
         {
-            RegistryValueKind.DWord => new RegistryValue(true, RegistryKind.DWord, unchecked((uint)(int)value!).ToString(CultureInfo.InvariantCulture)),
-            RegistryValueKind.String => new RegistryValue(true, RegistryKind.String, (string?)value),
+            RegistryValueKind.DWord => RegistryValue.FromDWord(unchecked((uint)(int)value!)),
+            RegistryValueKind.String => RegistryValue.FromString((string)value!),
             _ => throw new InvalidOperationException("Existing registry type is unsupported; refusing to overwrite it.")
         });
     }
-    public Task WriteAsync(string path, string name, RegistryKind kind, string value, CancellationToken ct)
+    internal static Task WriteCore(string path, string name, RegistryValue value, CancellationToken ct,
+        Func<string, RegistryLocation> parse)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
         ct.ThrowIfCancellationRequested();
-        var (hive, subkey) = Split(path);
-        using var key = hive.CreateSubKey(subkey, true) ?? throw new InvalidOperationException("Could not create registry key.");
-        key.SetValue(name, kind == RegistryKind.DWord ? unchecked((int)uint.Parse(value, CultureInfo.InvariantCulture)) : value,
-            kind == RegistryKind.DWord ? RegistryValueKind.DWord : RegistryValueKind.String);
+        RegistryPathPolicy.ValidateName(name);
+        value.Validate();
+        if (!value.Exists) throw new ArgumentException("Cannot write an absent registry value.", nameof(value));
+        var location = parse(path);
+        using var hive = OpenHive(location.Hive);
+        using var key = hive.CreateSubKey(location.KeyPath, true) ?? throw new InvalidOperationException("Could not create registry key.");
+        if (value.Kind == RegistryKind.DWord)
+            key.SetValue(name, unchecked((int)value.DWord!.Value), RegistryValueKind.DWord);
+        else
+            key.SetValue(name, value.Text!, RegistryValueKind.String);
         return Task.CompletedTask;
     }
-    private static (RegistryKey Hive, string Subkey) Split(string path)
+    internal static Task DeleteCore(string path, string name, CancellationToken ct, Func<string, RegistryLocation> parse)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
-        var index = path.IndexOf('\\');
-        return (path[..index].ToUpperInvariant() switch { "HKLM" => Registry.LocalMachine, "HKCU" => Registry.CurrentUser, _ => throw new ArgumentException("Unsupported hive.") }, path[(index + 1)..]);
+        ct.ThrowIfCancellationRequested();
+        RegistryPathPolicy.ValidateName(name);
+        var location = parse(path);
+        using var hive = OpenHive(location.Hive);
+        using var key = hive.OpenSubKey(location.KeyPath, true);
+        key?.DeleteValue(name, false);
+        return Task.CompletedTask;
+    }
+    private static RegistryKey OpenHive(RegistryHiveKind hive)
+    {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
+        return RegistryKey.OpenBaseKey(
+            hive == RegistryHiveKind.LocalMachine ? RegistryHive.LocalMachine : RegistryHive.CurrentUser, RegistryView.Registry64);
     }
 }
-public sealed class JsonRegistryBackupStore : IRegistryBackupStore
+public sealed class ExplorerWindowsRegistry : IExplorerRegistryAccess
 {
-    public Task SaveAsync(RegistryBackup backup, CancellationToken ct)
+    public Task<RegistryValue> ReadAsync(string path, string name, CancellationToken ct)
     {
-        var file = Path.Combine(WindowsPaths.Backups, backup.OperationId + "-" + Guid.NewGuid().ToString("N") + ".json");
-        return AtomicJson.WriteAsync(file, backup, ct);
+        ExplorerRegistryPolicy.ValidateValue(path, name);
+        return WindowsRegistry.ReadCore(path, name, ct, ExplorerRegistryPolicy.Parse);
+    }
+    public Task WriteAsync(string path, string name, RegistryValue value, CancellationToken ct)
+    {
+        ExplorerRegistryPolicy.ValidateValue(path, name);
+        return WindowsRegistry.WriteCore(path, name, value, ct, ExplorerRegistryPolicy.Parse);
+    }
+    public Task DeleteValueAsync(string path, string name, CancellationToken ct)
+    {
+        ExplorerRegistryPolicy.ValidateValue(path, name);
+        return WindowsRegistry.DeleteCore(path, name, ct, ExplorerRegistryPolicy.Parse);
+    }
+}
+public sealed class JsonRegistryBackupStore(string? directory = null) : IRegistryBackupStore
+{
+    private readonly string directory = directory ?? WindowsPaths.Backups;
+    public async Task SaveAsync(RegistryBackup backup, CancellationToken ct)
+    {
+        var bytes = RegistryBackupCodec.Serialize(backup);
+        var file = BackupPath(backup.BackupId);
+        Directory.CreateDirectory(directory);
+        var temp = file + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            await using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
+            {
+                await stream.WriteAsync(bytes, ct);
+                await stream.FlushAsync(ct);
+                stream.Flush(true);
+            }
+            File.Move(temp, file);
+        }
+        finally { if (File.Exists(temp)) File.Delete(temp); }
+    }
+    public async Task<RegistryBackup> LoadAsync(string backupId, CancellationToken ct)
+    {
+        var file = BackupPath(backupId);
+        byte[] bytes;
+        try
+        {
+            if (new FileInfo(file).Length > 1024 * 1024) throw new FormatException("Invalid registry backup size.");
+            bytes = await File.ReadAllBytesAsync(file, ct);
+        }
+        catch (FileNotFoundException) { throw new InvalidOperationException("Backup not found."); }
+        catch (DirectoryNotFoundException) { throw new InvalidOperationException("Backup not found."); }
+        var backup = RegistryBackupCodec.Deserialize(bytes);
+        if (backup.BackupId != backupId) throw new FormatException("Backup filename and ID do not match.");
+        return backup;
+    }
+    public async Task<IReadOnlyList<RegistryBackup>> ListAsync(CancellationToken ct)
+    {
+        if (!Directory.Exists(directory)) return [];
+        var result = new List<RegistryBackup>();
+        foreach (var file in Directory.EnumerateFiles(directory, "*.json"))
+        {
+            ct.ThrowIfCancellationRequested();
+            var id = Path.GetFileNameWithoutExtension(file);
+            RegistryBackupId.Validate(id);
+            result.Add(await LoadAsync(id, ct));
+        }
+        return result.OrderByDescending(x => x.Timestamp).ToArray();
+    }
+    private string BackupPath(string id)
+    {
+        RegistryBackupId.Validate(id);
+        return Path.Combine(directory, id + ".json");
     }
 }
 public sealed class JsonExecutionStateStore : IExecutionStateStore
@@ -171,7 +262,7 @@ public sealed class ConsoleOperationLogger : IOperationLogger
     public void Log(LogEntry entry)
     {
         operations.TryGetValue(entry.OperationId, out var operation);
-        var name = operation?.Package?.Name ?? operation?.Registry?.Name ?? entry.OperationId;
+        var name = operation?.Package?.Name ?? operation?.Registry?.Name ?? operation?.ExplorerSetting?.Name ?? entry.OperationId;
         Console.WriteLine($"{entry.Outcome.ToString().ToUpperInvariant(),-7} {name} [{entry.OperationId}]");
         Console.WriteLine($"        {entry.Message}");
     }

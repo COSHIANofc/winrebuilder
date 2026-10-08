@@ -16,15 +16,16 @@ public sealed record PackageSpec(string Name, PackageProvider Provider, string? 
     string? Asset, Uri? Url, string? Sha256, InstallerKind? Installer, SilentMode? SilentMode,
     string? UninstallDisplayName, Phase Phase);
 public sealed record RegistrySpec(string Path, string Name, RegistryKind Kind, string Value);
-public sealed record Profile(int Version, IReadOnlyList<PackageSpec> Packages, IReadOnlyList<RegistrySpec> Registry);
-public sealed record LoadedProfile(Profile Profile, string Sha256);
+public sealed record ExplorerPatcherSpec(bool Enabled, string? SettingsFile);
+public sealed record Profile(int Version, IReadOnlyList<PackageSpec> Packages, IReadOnlyList<RegistrySpec> Registry,
+    ExplorerPatcherSpec? ExplorerPatcher = null);
+public sealed record LoadedProfile(Profile Profile, string Sha256, IReadOnlyList<ExplorerSetting>? ExplorerSettings = null);
 
 public static class ProfileLoader
 {
     private static readonly Regex Hex64 = new("\\A[0-9a-fA-F]{64}\\z", RegexOptions.Compiled);
     private static readonly Regex Repo = new("\\A[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*\\z", RegexOptions.Compiled);
     private static readonly Regex Asset = new("\\A[A-Za-z0-9][A-Za-z0-9._-]*\\z", RegexOptions.Compiled);
-    private static readonly Regex RegistryPath = new("\\A(HKLM|HKCU)\\\\(?:[A-Za-z0-9 _.-]+\\\\)*[A-Za-z0-9 _.-]+\\z", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     public static LoadedProfile Load(string yaml)
     {
@@ -37,13 +38,32 @@ public static class ProfileLoader
         catch (Exception e) { throw new FormatException("Invalid YAML: " + e.Message, e); }
         if (stream.Documents.Count != 1) throw new FormatException("Exactly one YAML document is required.");
         CheckNodes(stream.Documents[0].RootNode, 0);
-        var root = Map(stream.Documents[0].RootNode, "profile", "version", "packages", "registry");
+        var root = Map(stream.Documents[0].RootNode, "profile", "version", "packages", "registry", "explorerPatcher");
         var version = Scalar(Required(root, "version"), "version");
         if (version != "1") throw new FormatException("Only profile version 1 is supported.");
         var packages = root.TryGetValue("packages", out var p) ? Sequence(p, "packages").Select(ReadPackage).ToArray() : [];
         var registry = root.TryGetValue("registry", out var r) ? Sequence(r, "registry").Select(ReadRegistry).ToArray() : [];
+        var explorer = root.TryGetValue("explorerPatcher", out var ep) ? ReadExplorerPatcher(ep) : null;
+        if (explorer?.Enabled == true && !packages.Any(x => x.Name == "ExplorerPatcher" &&
+            x.Provider == PackageProvider.Github && x.Repository == "valinet/ExplorerPatcher" && x.Phase == Phase.Shell))
+            throw new FormatException("Enabled ExplorerPatcher settings require its shell-phase package entry.");
         var canonical = yaml.Replace("\r\n", "\n", StringComparison.Ordinal);
-        return new LoadedProfile(new Profile(1, packages, registry), Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))));
+        return new LoadedProfile(new Profile(1, packages, registry, explorer), Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))));
+    }
+
+    private static ExplorerPatcherSpec ReadExplorerPatcher(YamlNode node)
+    {
+        var map = Map(node, "explorerPatcher", "enabled", "settingsFile");
+        var enabled = Get(map, "enabled") switch
+        {
+            "true" => true, "false" => false,
+            _ => throw new FormatException("explorerPatcher.enabled must be true or false.")
+        };
+        var file = Optional(map, "settingsFile");
+        if (enabled && file is null) throw new FormatException("Enabled ExplorerPatcher requires settingsFile.");
+        if (!enabled && file is not null) throw new FormatException("Disabled ExplorerPatcher cannot specify settingsFile.");
+        if (file is not null) ExplorerSettingsPath.Validate(file);
+        return new ExplorerPatcherSpec(enabled, file);
     }
 
     private static PackageSpec ReadPackage(YamlNode node)
@@ -96,15 +116,13 @@ public static class ProfileLoader
     {
         var m = Map(node, "registry entry", "path", "name", "type", "value");
         var path = Get(m, "path"); var name = Get(m, "name"); var type = Get(m, "type"); var value = Get(m, "value");
-        if (!RegistryPath.IsMatch(path) ||
-            !(path.StartsWith("HKLM\\SOFTWARE\\Policies\\", StringComparison.OrdinalIgnoreCase) ||
-              path.StartsWith("HKCU\\Software\\Policies\\", StringComparison.OrdinalIgnoreCase)) ||
-            name.Length is < 1 or > 16383 || name.Contains('\\') || HasControls(name))
-            throw new FormatException("Invalid registry path or value name.");
+        RegistryPathPolicy.Parse(path);
+        RegistryPathPolicy.ValidateName(name);
         var kind = type switch { "DWORD" => RegistryKind.DWord, "STRING" => RegistryKind.String, _ => throw new FormatException("Only DWORD and STRING registry types are supported.") };
         if (kind == RegistryKind.DWord && (!uint.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out _)))
             throw new FormatException("DWORD value must be an unsigned decimal 32-bit number.");
         if (kind == RegistryKind.String && (value.Length > 32767 || value.Contains('\0'))) throw new FormatException("Invalid registry string.");
+        if (kind == RegistryKind.String) RegistryValue.FromString(value).Validate();
         return new RegistrySpec(path, name, kind, value);
     }
 
