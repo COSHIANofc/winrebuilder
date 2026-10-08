@@ -31,7 +31,7 @@ jobs:
       - name: Validate CLI help
         shell: pwsh
         run: |
-          $helpText = dotnet run --no-build -c Release --project src/WinRebuilder.Cli -- --help
+          $helpText = dotnet run --no-build -c Release --project src/WinRebuilder.Cli -- --help | Out-String
           if ($LASTEXITCODE -ne 0 -or $helpText -notmatch 'wrb \[command\] \[options\]') { throw 'CLI help validation failed.' }
   release:
     needs: validate
