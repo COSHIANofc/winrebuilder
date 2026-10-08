@@ -52,7 +52,7 @@ public sealed class RegistryTests
     public void MissingUnknownAndDuplicateFieldsAreRejected()
     {
         var json = Encoding.UTF8.GetString(RegistryBackupCodec.Serialize(Backup(RegistryValue.Missing)));
-        Assert.Throws<FormatException>(() => RegistryBackupCodec.Deserialize(Encoding.UTF8.GetBytes(json.Replace("  \"Name\": \"TestValue\",\n", ""))));
+        Assert.Throws<FormatException>(() => RegistryBackupCodec.Deserialize(Encoding.UTF8.GetBytes(json.Replace("\"Name\": \"TestValue\",", ""))));
         Assert.Throws<FormatException>(() => RegistryBackupCodec.Deserialize(Encoding.UTF8.GetBytes(json.Replace("  \"Name\": \"TestValue\",", "  \"Name\": \"TestValue\", \"Unexpected\": 1,"))));
         Assert.Throws<FormatException>(() => RegistryBackupCodec.Deserialize(Encoding.UTF8.GetBytes(json.Replace("  \"Name\": \"TestValue\",", "  \"Name\": \"TestValue\", \"Name\": \"TestValue\","))));
     }
