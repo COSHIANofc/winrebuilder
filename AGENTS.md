@@ -137,12 +137,106 @@ It must:
 
 - run in the shell/final phase
 - never run before ordinary package installation
-- use the official GitHub repository as its source
+- be installed through its verified winget package
+- use exact package identity and the existing WinRebuilder winget provider
+- retain post-install package verification
 - not rely on undocumented registry assumptions
+- never bypass the normal WinRebuilder execution, logging, state, or safety infrastructure
 
-ExplorerPatcher `.reg` restoration is a special-purpose, strict, allowlisted parser. Never add a generic `.reg` import or invoke `regedit`, `reg.exe`, or PowerShell. Reject the complete file before mutation if a setting is unsupported or unsafe. Keep the normal `registry:` Policies allowlist separate.
+Do not use the GitHub Releases provider as the normal ExplorerPatcher installation method.
 
-Release executables are self-contained single-file `win-x64` builds with trimming disabled. The tag-release workflow must validate the tag against the public version before publishing, use only `GITHUB_TOKEN` with job-scoped `contents: write`, and upload the EXE, checksum, and conservative config example.
+The ExplorerPatcher winget package ID must be verified against a reliable source before being hardcoded or included in the default configuration. Do not guess package identifiers.
+
+ExplorerPatcher `.reg` restoration is a special-purpose, strict, allowlisted parser.
+
+Never:
+
+- implement a generic `.reg` import feature
+- invoke `regedit.exe`
+- invoke `reg.exe`
+- invoke PowerShell
+- invoke `cmd.exe`
+- accept arbitrary registry paths from an ExplorerPatcher `.reg` file
+
+The complete `.reg` file must be parsed and validated before any registry mutation occurs.
+
+If any entry is unsupported, malformed, or outside the ExplorerPatcher-specific allowlist, reject the complete file before mutation.
+
+The ExplorerPatcher registry allowlist must remain separate from the normal `registry:` configuration policy.
+
+Normal `registry:` entries retain their existing restricted Policies-path safety rules.
+
+Every ExplorerPatcher registry mutation must use the normal WinRebuilder recoverability guarantees:
+
+1. read the current registry state
+2. create a typed backup
+3. persist the backup successfully
+4. reload and verify the persisted backup
+5. verify that the registry value has not changed since backup
+6. apply the mutation
+7. reread the registry
+8. verify the result
+9. only then mark the operation complete
+
+ExplorerPatcher `.reg` restoration must remain compatible with WinRebuilder rollback infrastructure.
+
+If the selected `.reg` file originates outside the WinRebuilder configuration directory, validate it first and copy it into a safe configuration-local path such as:
+
+`settings/explorerpatcher.reg`
+
+Store only the safe relative path in `config.yml`.
+
+Do not store arbitrary absolute, UNC, device, or traversal paths in configuration.
+
+## Release
+
+WinRebuilder release artifacts target Windows 11 x64.
+
+The command-line executable is:
+
+`wrb.exe`
+
+The graphical application executable is:
+
+`WinRebuilder.exe`
+
+Release builds should use:
+
+- `Release` configuration
+- `win-x64`
+- self-contained deployment
+- trimming disabled
+
+Prefer single-file publishing where it has been verified to work correctly for the relevant project.
+
+Do not enable trimming merely to reduce artifact size.
+
+Do not use NativeAOT unless it is explicitly introduced and fully validated in a later milestone.
+
+The tag-release workflow must:
+
+- validate the Git tag against the application's exact public version
+- fail before publishing if the tag and application version differ
+- run restore, build, and tests before release publication
+- verify expected release artifacts exist and are non-empty
+- generate SHA-256 checksums for executable artifacts
+- use only the GitHub-provided `GITHUB_TOKEN`
+- use job-scoped `contents: write` only where release publication requires it
+- avoid long-lived repository or personal access tokens
+- create prereleases for alpha/beta versions
+- never overwrite historical release assets or tags
+
+Release assets should include the required executable artifacts and conservative configuration examples.
+
+For the current architecture, expected release artifacts include at least:
+
+- `wrb.exe`
+- `wrb.exe.sha256`
+- `WinRebuilder.exe`
+- `WinRebuilder.exe.sha256`
+- `config.example.yml`
+
+Do not publish a default configuration that performs unexpected or destructive machine changes.
 
 ## Dry run
 
