@@ -12,9 +12,9 @@ internal static class ConfigurationBootstrap
     {
         if (File.Exists(path)) return;
         var directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
-        if (!Directory.Exists(directory)) throw new DirectoryNotFoundException("The application folder is unavailable.");
+        if (!Directory.Exists(directory)) throw new DirectoryNotFoundException(Localization.Instance["AppFolderUnavailable"]);
         using var resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("WinRebuilder.DefaultConfig")
-            ?? throw new InvalidOperationException("Default configuration is missing from the application.");
+            ?? throw new InvalidOperationException(Localization.Instance["DefaultConfigMissing"]);
         using var bytes = new MemoryStream();
         resource.CopyTo(bytes);
         ProfileLoader.Load(Encoding.UTF8.GetString(bytes.ToArray()));
@@ -31,7 +31,7 @@ internal static class ConfigurationBootstrap
             File.Move(temporary, path);
         }
         catch (IOException) when (File.Exists(path)) { }
-        catch (UnauthorizedAccessException e) { throw new IOException("Cannot create config.yml beside the executable. Move WinRebuilder to a writable folder.", e); }
+        catch (UnauthorizedAccessException e) { throw new IOException(Localization.Instance["ConfigWriteError"], e); }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 }

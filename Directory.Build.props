@@ -1,10 +1,10 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Version>0.3.1.1</Version>
-    <AssemblyVersion>0.3.1.1</AssemblyVersion>
-    <FileVersion>0.3.1.1</FileVersion>
-    <InformationalVersion>v.0.3.c-beta</InformationalVersion>
+    <Version>0.4.0</Version>
+    <AssemblyVersion>0.4.0.0</AssemblyVersion>
+    <FileVersion>0.4.0.0</FileVersion>
+    <InformationalVersion>v.1.0.a-pre1</InformationalVersion>
     <Company>COSHIAN</Company>
     <Product>WinRebuilder</Product>
     <AssemblyTitle>WinRebuilder</AssemblyTitle>

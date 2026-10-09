@@ -1,0 +1,264 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <data name="Subtitle" xml:space="preserve">
+    <value>Windows setup</value>
+  </data>
+  <data name="NavSoftware" xml:space="preserve">
+    <value>Software</value>
+  </data>
+  <data name="NavExplorer" xml:space="preserve">
+    <value>ExplorerPatcher</value>
+  </data>
+  <data name="NavConfiguration" xml:space="preserve">
+    <value>Configuration</value>
+  </data>
+  <data name="NavAbout" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="ThemeLight" xml:space="preserve">
+    <value>Light appearance</value>
+  </data>
+  <data name="ThemeDark" xml:space="preserve">
+    <value>Dark appearance</value>
+  </data>
+  <data name="LanguageLabel" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="LanguageJapanese" xml:space="preserve">
+    <value>Japanese</value>
+  </data>
+  <data name="LanguageEnglish" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="SoftwareSubtitle" xml:space="preserve">
+    <value>Applications configured in config.yml</value>
+  </data>
+  <data name="ApplicationHeader" xml:space="preserve">
+    <value>APPLICATION</value>
+  </data>
+  <data name="PackageIdHeader" xml:space="preserve">
+    <value>PACKAGE ID</value>
+  </data>
+  <data name="StatusHeader" xml:space="preserve">
+    <value>STATUS</value>
+  </data>
+  <data name="EmptySoftware" xml:space="preserve">
+    <value>No software is configured. Add a winget package to begin.</value>
+  </data>
+  <data name="AddSoftware" xml:space="preserve">
+    <value>Add software</value>
+  </data>
+  <data name="RemoveSoftware" xml:space="preserve">
+    <value>Remove from config</value>
+  </data>
+  <data name="InstallSelected" xml:space="preserve">
+    <value>Install selected</value>
+  </data>
+  <data name="InstallAll" xml:space="preserve">
+    <value>Install all</value>
+  </data>
+  <data name="Reload" xml:space="preserve">
+    <value>Reload</value>
+  </data>
+  <data name="CheckStatus" xml:space="preserve">
+    <value>Check status</value>
+  </data>
+  <data name="RemoveHint" xml:space="preserve">
+    <value>Removing an entry changes config.yml; it does not uninstall the application.</value>
+  </data>
+  <data name="ExplorerSubtitle" xml:space="preserve">
+    <value>Shell changes run after ordinary software installation.</value>
+  </data>
+  <data name="ExplorerEnable" xml:space="preserve">
+    <value>Install ExplorerPatcher in the final phase</value>
+  </data>
+  <data name="SettingsFile" xml:space="preserve">
+    <value>Settings file</value>
+  </data>
+  <data name="ExplorerHint" xml:space="preserve">
+    <value>Only validated ExplorerPatcher settings are accepted. A copy is stored beside config.yml.</value>
+  </data>
+  <data name="ChooseReg" xml:space="preserve">
+    <value>Choose .reg file</value>
+  </data>
+  <data name="ApplySettings" xml:space="preserve">
+    <value>Apply settings</value>
+  </data>
+  <data name="ConfigurationSubtitle" xml:space="preserve">
+    <value>Review your profile and recover saved registry values.</value>
+  </data>
+  <data name="ProfileLocation" xml:space="preserve">
+    <value>Profile location</value>
+  </data>
+  <data name="ReloadConfig" xml:space="preserve">
+    <value>Reload config.yml</value>
+  </data>
+  <data name="RegistryBackups" xml:space="preserve">
+    <value>Registry backups</value>
+  </data>
+  <data name="RegistryHint" xml:space="preserve">
+    <value>Select a backup to restore its previous value. Later edits are protected.</value>
+  </data>
+  <data name="LoadBackups" xml:space="preserve">
+    <value>Load backups</value>
+  </data>
+  <data name="RestoreSelected" xml:space="preserve">
+    <value>Restore selected</value>
+  </data>
+  <data name="AboutTitle" xml:space="preserve">
+    <value>About WinRebuilder</value>
+  </data>
+  <data name="AboutDescription" xml:space="preserve">
+    <value>Rebuild a Windows 11 environment from your reviewed config.yml. Changes are planned and logged; registry values are backed up before writes.</value>
+  </data>
+  <data name="Activity" xml:space="preserve">
+    <value>Activity</value>
+  </data>
+  <data name="CancelOperation" xml:space="preserve">
+    <value>Cancel operation</value>
+  </data>
+  <data name="DialogAddTitle" xml:space="preserve">
+    <value>Add winget software</value>
+  </data>
+  <data name="DisplayName" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="ExactWingetId" xml:space="preserve">
+    <value>Exact winget package ID</value>
+  </data>
+  <data name="RegFilter" xml:space="preserve">
+    <value>Registry settings (*.reg)</value>
+  </data>
+  <data name="RegPickerTitle" xml:space="preserve">
+    <value>Choose ExplorerPatcher settings</value>
+  </data>
+  <data name="RemoveTitle" xml:space="preserve">
+    <value>Remove software</value>
+  </data>
+  <data name="RemoveConfirm" xml:space="preserve">
+    <value>Remove {0} from config.yml? This does not uninstall it from Windows.</value>
+  </data>
+  <data name="RestoreTitle" xml:space="preserve">
+    <value>Restore registry backup</value>
+  </data>
+  <data name="RestoreConfirm" xml:space="preserve">
+    <value>Restore the previous value of {0}\{1}? WinRebuilder will refuse if the current value differs from the saved applied value.</value>
+  </data>
+  <data name="Pending" xml:space="preserve">
+    <value>Pending</value>
+  </data>
+  <data name="Installing" xml:space="preserve">
+    <value>Installing</value>
+  </data>
+  <data name="Installed" xml:space="preserve">
+    <value>Installed</value>
+  </data>
+  <data name="NotInstalled" xml:space="preserve">
+    <value>Not installed</value>
+  </data>
+  <data name="CheckFailed" xml:space="preserve">
+    <value>Check failed</value>
+  </data>
+  <data name="AlreadyInstalled" xml:space="preserve">
+    <value>Already installed</value>
+  </data>
+  <data name="FailedRow" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="StatusLoading" xml:space="preserve">
+    <value>Loading config.yml…</value>
+  </data>
+  <data name="StatusReady" xml:space="preserve">
+    <value>Ready: {0}</value>
+  </data>
+  <data name="StatusOpenFailed" xml:space="preserve">
+    <value>Failed to open config.yml: {0}</value>
+  </data>
+  <data name="StatusCancelled" xml:space="preserve">
+    <value>Cancelled.</value>
+  </data>
+  <data name="StatusFailed" xml:space="preserve">
+    <value>Failed: {0}</value>
+  </data>
+  <data name="StatusAdded" xml:space="preserve">
+    <value>Added to config.yml.</value>
+  </data>
+  <data name="StatusRemoved" xml:space="preserve">
+    <value>Removed from config.yml; application remains installed.</value>
+  </data>
+  <data name="StatusReloaded" xml:space="preserve">
+    <value>Reloaded config.yml.</value>
+  </data>
+  <data name="StatusInstalling" xml:space="preserve">
+    <value>Installing {0}</value>
+  </data>
+  <data name="StatusInstallingAll" xml:space="preserve">
+    <value>Installing configured software…</value>
+  </data>
+  <data name="StatusChecking" xml:space="preserve">
+    <value>Checking configured package status…</value>
+  </data>
+  <data name="StatusCheckFailed" xml:space="preserve">
+    <value>Status check failed; see log.</value>
+  </data>
+  <data name="StatusUpdated" xml:space="preserve">
+    <value>Package status updated.</value>
+  </data>
+  <data name="StatusRegSelected" xml:space="preserve">
+    <value>Validated and copied ExplorerPatcher settings.</value>
+  </data>
+  <data name="StatusApplying" xml:space="preserve">
+    <value>Applying ExplorerPatcher settings…</value>
+  </data>
+  <data name="StatusBackupsLoaded" xml:space="preserve">
+    <value>Loaded {0} registry backups.</value>
+  </data>
+  <data name="StatusRollbackFailed" xml:space="preserve">
+    <value>Rollback failed: {0}</value>
+  </data>
+  <data name="StatusRollback" xml:space="preserve">
+    <value>Rollback: {0}</value>
+  </data>
+  <data name="StatusInstallFailed" xml:space="preserve">
+    <value>Installation failed; see log.</value>
+  </data>
+  <data name="StatusCompleted" xml:space="preserve">
+    <value>Completed.</value>
+  </data>
+  <data name="OutcomeInstall" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="OutcomeChange" xml:space="preserve">
+    <value>Change</value>
+  </data>
+  <data name="OutcomeRestore" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="OutcomeSkip" xml:space="preserve">
+    <value>Skip</value>
+  </data>
+  <data name="OutcomeFail" xml:space="preserve">
+    <value>Fail</value>
+  </data>
+  <data name="OutcomeWarning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="ConfigWriteError" xml:space="preserve">
+    <value>Cannot create config.yml beside the executable. Move WinRebuilder to a writable folder.</value>
+  </data>
+  <data name="LanguageFolderLinkError" xml:space="preserve">
+    <value>Language settings folder cannot be a symbolic link.</value>
+  </data>
+  <data name="LanguageFileLinkError" xml:space="preserve">
+    <value>Language settings file cannot be a symbolic link.</value>
+  </data>
+  <data name="AppFolderUnavailable" xml:space="preserve">
+    <value>The application folder is unavailable.</value>
+  </data>
+  <data name="DefaultConfigMissing" xml:space="preserve">
+    <value>Default configuration is missing from the application.</value>
+  </data>
+</root>

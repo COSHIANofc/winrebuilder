@@ -11,6 +11,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         model = new MainViewModel(new Dialogs());
         DataContext = model;
+        SourceInitialized += (_, _) => WindowAppearance.Apply(this);
         Loaded += async (_, _) => await model.InitializeAsync();
         Closed += (_, _) => model.Dispose();
     }

@@ -1,4 +1,4 @@
-# Copy to config.yml and review all packages before applying.
+# config.yml にコピーし、適用前にすべてのパッケージを確認してください。
 version: 1
 packages:
   - name: 7-Zip

@@ -78,13 +78,19 @@
       <Setter Property="Background" Value="{DynamicResource CardBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushSoft}" />
       <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource SelectionBrush}" />
     </Style>
+    <Style TargetType="ScrollViewer"><Setter Property="Background" Value="Transparent" /></Style>
     <Style TargetType="ListBox">
       <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushSoft}" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
     </Style>
     <Style TargetType="ListBoxItem">
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
       <Setter Property="Padding" Value="12,10" />
       <Setter Property="Margin" Value="0,2" />
       <Setter Property="Template">

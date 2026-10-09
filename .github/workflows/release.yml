@@ -19,7 +19,7 @@ jobs:
         run: |
           [xml]$props = Get-Content Directory.Build.props
           if ($env:TAG_NAME -ne $props.Project.PropertyGroup.InformationalVersion) { throw 'Tag does not match the public version.' }
-          if ($props.Project.PropertyGroup.Version -ne '0.3.1.1' -or $props.Project.PropertyGroup.AssemblyVersion -ne '0.3.1.1' -or $props.Project.PropertyGroup.FileVersion -ne '0.3.1.1') { throw 'Internal version mismatch.' }
+          if ($props.Project.PropertyGroup.Version -ne '0.4.0' -or $props.Project.PropertyGroup.AssemblyVersion -ne '0.4.0.0' -or $props.Project.PropertyGroup.FileVersion -ne '0.4.0.0') { throw 'Internal version mismatch.' }
       - run: dotnet restore WinRebuilder.slnx
       - run: dotnet build WinRebuilder.slnx --no-restore -c Release
       - run: dotnet test WinRebuilder.slnx --no-build -c Release
@@ -29,6 +29,10 @@ jobs:
           if (Test-Path src/WinRebuilder.Cli) { throw 'CLI project remains.' }
           if (Test-Path packaging/wrb.cmd) { throw 'CLI alias remains.' }
           if (-not (Test-Path config.yml) -or -not (Test-Path config.example.yml)) { throw 'Configuration files missing.' }
+          if (-not (Test-Path README.md) -or -not (Test-Path src/WinRebuilder.UI/Strings.ja.resx)) { throw 'Japanese documentation or resources missing.' }
+          [xml]$ui = Get-Content src/WinRebuilder.UI/WinRebuilder.UI.csproj
+          $icon = [string]$ui.Project.PropertyGroup.ApplicationIcon
+          if ($icon -ne 'Assets/WinRebuilder.ico' -or -not (Test-Path "src/WinRebuilder.UI/$icon")) { throw 'Application icon is not configured.' }
   release:
     needs: validate
     runs-on: windows-latest

@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using WinRebuilder.Core;
 using WinRebuilder.UI;
 using Xunit;
@@ -19,7 +21,16 @@ public sealed class UiWorkflowTests
     public void MainWindowCompositionRootConstructsOnStaThread()
     {
         Exception? failure = null;
-        var thread = new Thread(() => { try { var app = new App(); app.InitializeComponent(); var window = new MainWindow(); Assert.NotNull(window.DataContext); window.Close(); }
+        var thread = new Thread(() => { try { var app = new App(); app.InitializeComponent(); var window = new MainWindow(); Assert.NotNull(window.DataContext);
+                var dark = !ThemePalette.IsDark;
+                ThemePalette.Toggle();
+                var card = Assert.IsType<SolidColorBrush>(app.Resources["CardBrush"]);
+                Assert.Equal((Color)ColorConverter.ConvertFromString(ThemePalette.ColorFor("CardBrush", dark)), card.Color);
+                var root = Assert.IsType<Grid>(window.Content);
+                var canvas = Assert.IsType<SolidColorBrush>(root.Background);
+                Assert.Equal((Color)ColorConverter.ConvertFromString(ThemePalette.ColorFor("CanvasBrush", dark)), canvas.Color);
+                ThemePalette.Toggle();
+                window.Close(); }
             catch (Exception e) { failure = e; } });
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start(); thread.Join();
@@ -40,7 +51,7 @@ public sealed class UiWorkflowTests
             using var model = new MainViewModel(dialogs, path, _ => runner);
             await model.InitializeAsync();
             Assert.Equal(2, model.Packages.Count);
-            Assert.Equal("WinRebuilder v.0.3.c-beta", model.WindowTitle);
+            Assert.Equal("WinRebuilder v.1.0.a-pre1", model.WindowTitle);
             dialogs.Package = ("CrystalDiskInfo", "CrystalDewWorld.CrystalDiskInfo");
             model.AddCommand.Execute(null);
             await Until(() => model.Packages.Count == 3);
@@ -62,15 +73,15 @@ public sealed class UiWorkflowTests
             await Until(() => runner.Plans.Count == 3);
             await Until(() => model.CanEdit);
             Assert.True(runner.DryRuns[2]);
-            Assert.All(model.Packages, row => Assert.Equal("Installed", row.Status));
+            Assert.All(model.Packages, row => Assert.Equal("Installed", row.StatusKey));
             var invalid = Path.Combine(folder, "invalid.reg");
             await File.WriteAllTextAsync(invalid, "Windows Registry Editor Version 5.00\r\n[HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run]\r\n\"Bad\"=\"x\"\r\n", Encoding.UTF8);
             dialogs.RegPath = invalid;
             model.SelectRegCommand.Execute(null);
-            await Until(() => model.Status.StartsWith("Failed:", StringComparison.Ordinal));
+            await Until(() => model.Status.StartsWith(Localization.Instance["StatusFailed"].Split('{')[0], StringComparison.Ordinal));
             await Until(() => model.CanEdit);
-            Assert.Equal("None", model.ExplorerSettingsFile);
-            Assert.Contains("Failed:", model.Log.Last());
+            Assert.Equal(Localization.Instance["None"], model.ExplorerSettingsFile);
+            Assert.Contains(Localization.Instance["StatusFailed"].Split('{')[0], model.Log.Last());
             var valid = Path.Combine(folder, "valid.reg");
             await File.WriteAllTextAsync(valid, "Windows Registry Editor Version 5.00\r\n[HKEY_CURRENT_USER\\Software\\ExplorerPatcher]\r\n\"OldTaskbar\"=dword:00000002\r\n", Encoding.UTF8);
             dialogs.RegPath = valid;
@@ -95,6 +106,36 @@ public sealed class UiWorkflowTests
             Assert.Equal(3, model.Packages.Count);
         }
         finally { Directory.Delete(folder, true); }
+    }
+
+    [Fact]
+    public async Task LanguageCommandsRefreshVisibleStateWithoutEditingConfig()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "winrebuilder-language-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var originalLanguage = Localization.Instance.Language;
+        try
+        {
+            var path = Path.Combine(folder, "config.yml");
+            await File.WriteAllTextAsync(path, Config);
+            using var model = new MainViewModel(new FakeDialogs(), path, _ => new FakeRunner());
+            await model.InitializeAsync();
+            var originalConfig = await File.ReadAllBytesAsync(path);
+            model.EnglishCommand.Execute(null);
+            Assert.Equal("en", Localization.Instance.Language);
+            Assert.StartsWith("Ready:", model.Status);
+            Assert.Equal("Pending", model.Packages[0].Status);
+            model.JapaneseCommand.Execute(null);
+            Assert.Equal("ja", Localization.Instance.Language);
+            Assert.StartsWith("準備完了:", model.Status);
+            Assert.Equal("保留中", model.Packages[0].Status);
+            Assert.Equal(originalConfig, await File.ReadAllBytesAsync(path));
+        }
+        finally
+        {
+            Localization.Instance.Select(originalLanguage);
+            Directory.Delete(folder, true);
+        }
     }
 
     private static async Task Until(Func<bool> condition)

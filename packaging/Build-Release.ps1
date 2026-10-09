@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 [xml]$props = Get-Content Directory.Build.props
 $version = [string]$props.Project.PropertyGroup.InformationalVersion
-if ($version -ne 'v.0.3.c-beta') { throw 'Unexpected public version.' }
+if ($version -ne 'v.1.0.a-pre1') { throw 'Unexpected public version.' }
 $project = 'src/WinRebuilder.UI/WinRebuilder.UI.csproj'
 $variants = @(
     @{ Name = 'baseline'; Extra = @() },
@@ -64,7 +64,10 @@ $pe = [IO.File]::ReadAllBytes((Resolve-Path $final).Path)
 $peOffset = [BitConverter]::ToInt32($pe, 0x3c)
 if ([BitConverter]::ToUInt16($pe, $peOffset + 24 + 68) -ne 2) { throw 'Executable is not a Windows GUI subsystem application.' }
 $fileInfo = (Get-Item $final).VersionInfo
-if ($fileInfo.FileVersion -ne '0.3.1.1' -or $fileInfo.ProductVersion -ne $version) { throw 'PE version metadata mismatch.' }
+if ($fileInfo.FileVersion -ne '0.4.0.0' -or $fileInfo.ProductVersion -ne $version) { throw 'PE version metadata mismatch.' }
+$icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path $final).Path)
+if ($null -eq $icon) { throw 'Published executable has no extractable icon.' }
+$icon.Dispose()
 New-Item -ItemType Directory -Path release-assets, release-package -Force | Out-Null
 Copy-Item $final release-assets/WinRebuilder-portable.exe
 if ((Get-FileHash $final -Algorithm SHA256).Hash -ne (Get-FileHash release-assets/WinRebuilder-portable.exe -Algorithm SHA256).Hash) { throw 'Portable copy differs from published executable.' }

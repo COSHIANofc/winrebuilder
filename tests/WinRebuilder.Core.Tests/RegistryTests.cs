@@ -83,7 +83,7 @@ public sealed class RegistryTests
         var backup = Assert.Single(rig.Backups.Items.Values);
         Assert.Equal(RegistryValue.FromDWord(2), backup.Previous);
         Assert.Equal(RegistryValue.FromDWord(1), backup.Target);
-        Assert.Equal("v.0.3.c-beta", backup.ApplicationVersion);
+        Assert.Equal("v.1.0.a-pre1", backup.ApplicationVersion);
         Assert.Equal(Planner.Create(ProfileLoader.Load(Profile)).ProfileHash, backup.ProfileHash);
         Assert.Equal(Outcome.Restore, (await rig.Rollback(backup.BackupId)).Outcome);
         Assert.Equal(RegistryValue.FromDWord(2), rig.Registry.Values[(Path, Name)]);
@@ -198,7 +198,7 @@ public sealed class RegistryTests
     }
 
     private static RegistryBackup Backup(RegistryValue previous) => new(1, RegistryBackupId.Create(), new string('A', 64),
-        "v.0.3.c-beta", new string('a', 24), DateTimeOffset.UtcNow, RegistryHiveKind.CurrentUser,
+        "v.1.0.a-pre1", new string('a', 24), DateTimeOffset.UtcNow, RegistryHiveKind.CurrentUser,
         @"Software\Policies\WinRebuilderTests", RegistryViewKind.Registry64, Name, previous, RegistryValue.FromDWord(1));
 
     private sealed class Rig
@@ -210,7 +210,7 @@ public sealed class RegistryTests
         private readonly IOperationLogger logger = new NullLogger();
         public Rig() { Registry = new FakeRegistry(Events); Backups = new FakeBackups(Events); }
         public Task<IReadOnlyList<OperationResult>> Apply(bool dryRun = false) =>
-            new Executor([], Registry, Backups, new FakeState(this), logger, "v.0.3.c-beta")
+            new Executor([], Registry, Backups, new FakeState(this), logger, "v.1.0.a-pre1")
                 .RunAsync(Planner.Create(ProfileLoader.Load(Profile)), dryRun);
         public Task<RollbackResult> Rollback(string id, bool dryRun = false) =>
             new RegistryRollback(Registry, Backups, logger).RunAsync(id, dryRun);

@@ -1,10 +1,11 @@
-WinRebuilder v.0.3.c-beta is a GUI-only Windows 11 release with a redesigned native WPF interface, configuration editing, ExplorerPatcher settings controls, and registry backup restoration.
+# WinRebuilder v.1.0.a-pre1
 
-Download `WinRebuilder.zip` for the standard distribution or `WinRebuilder-portable.exe` to keep configuration beside a single executable. Both distributions use the same application bytes. Review `config.yml` before installing software.
+Windows 11 向け GUI アプリです。日本語と英語を画面で即時切り替えでき、ダークテーマの背景・カード・一覧を統一しました。提供されたデザインのアプリアイコンを EXE とウィンドウに設定しています。
 
-- Edit `config.yml` through the GUI; add or remove winget software, install selected or all configured packages, and view results.
-- Install ExplorerPatcher through a pinned, source-verified winget manifest; optionally validate and apply its allowlisted `.reg` settings.
-- Back up and verify registry changes, with one-value rollback in the Configuration view.
-- Use the self-contained Windows x64 ZIP or portable executable; both open the GUI directly.
+`WinRebuilder.zip` または `WinRebuilder-portable.exe` をダウンロードし、インストール前に `config.yml` を確認してください。ZIP には日本語版 README、EXE、`config.yml`、`config.example.yml` が含まれます。
 
-Review the default 7-Zip, CrystalDiskInfo, and ExplorerPatcher configuration before applying. Real package installation and registry effects still require testing on a disposable Windows 11 machine.
+- GUI から winget ソフトウェアの追加・削除、選択または一括インストール、状態確認ができます。
+- ExplorerPatcher は検証済み winget パッケージを最終フェーズで扱い、許可された `.reg` 設定だけを検証して適用します。
+- レジストリの変更前にバックアップを保存・検証し、設定画面から値単位で復元できます。
+
+実際のインストールとレジストリ変更は、破棄可能な Windows 11 環境で引き続き検証が必要です。

@@ -1,4 +1,4 @@
-# Canonical configuration; review all packages before applying.
+# 正規の設定ファイルです。適用前にすべてのパッケージを確認してください。
 version: 1
 packages:
   - name: 7-Zip

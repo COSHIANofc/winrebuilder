@@ -127,7 +127,7 @@ public sealed class ExplorerSettingsTests
             var fake = new Fake { Installed = true };
             fake.Values[(Key, "OldTaskbar")] = RegistryValue.FromDWord(2);
             fake.Values[(Key, "Unrelated")] = RegistryValue.FromString("keep");
-            var executor = new Executor([fake, new GithubFake()], fake, fake, fake, fake, "v.0.3.c-beta", explorerRegistry: fake);
+            var executor = new Executor([fake, new GithubFake()], fake, fake, fake, fake, "v.1.0.a-pre1", explorerRegistry: fake);
             var applied = await executor.RunAsync(plan, false);
             Assert.Equal(Outcome.Change, applied[^1].Outcome);
             Assert.False(fake.Values.ContainsKey((Key, "OldTaskbar")));
@@ -148,7 +148,7 @@ public sealed class ExplorerSettingsTests
         {
             var plan = Planner.Create(await ConfigLoader.LoadAsync(path));
             var fake = new Fake { Installed = true, FailBackupAt = 3 };
-            var executor = new Executor([fake, new GithubFake()], fake, fake, fake, fake, "v.0.3.c-beta", explorerRegistry: fake);
+            var executor = new Executor([fake, new GithubFake()], fake, fake, fake, fake, "v.1.0.a-pre1", explorerRegistry: fake);
             var results = await executor.RunAsync(plan, false);
             Assert.Equal(Outcome.Fail, results[^1].Outcome);
             Assert.Null(fake.BackupsAtFirstExplorerWrite);
@@ -163,7 +163,7 @@ public sealed class ExplorerSettingsTests
         {
             var plan = Planner.Create(await ConfigLoader.LoadAsync(path));
             var fake = new Fake();
-            var executor = new Executor([fake, new GithubFake()], fake, fake, fake, fake, "v.0.3.c-beta", explorerRegistry: fake);
+            var executor = new Executor([fake, new GithubFake()], fake, fake, fake, fake, "v.1.0.a-pre1", explorerRegistry: fake);
             var dry = await executor.RunAsync(plan, true);
             Assert.Contains(dry, x => x.Type == OperationType.ExplorerPatcherSetting && x.Outcome == Outcome.Change);
             Assert.Equal(0, fake.Mutations);

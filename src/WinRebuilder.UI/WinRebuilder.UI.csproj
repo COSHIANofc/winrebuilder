@@ -5,10 +5,13 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <UseWPF>true</UseWPF>
     <AssemblyName>WinRebuilder</AssemblyName>
+    <RootNamespace>WinRebuilder.UI</RootNamespace>
+    <ApplicationIcon>Assets/WinRebuilder.ico</ApplicationIcon>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="../../config.yml" LogicalName="WinRebuilder.DefaultConfig" />
+    <Resource Include="Assets/WinRebuilder.ico" />
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>WinRebuilder.UI.Tests</_Parameter1>
     </AssemblyAttribute>

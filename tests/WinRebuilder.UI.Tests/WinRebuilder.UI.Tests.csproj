@@ -14,5 +14,6 @@
   </ItemGroup>
   <ItemGroup Condition="'$(OS)' != 'Windows_NT'">
     <Compile Remove="UiWorkflowTests.cs" />
+    <Compile Remove="LocalizationTests.cs" />
   </ItemGroup>
 </Project>

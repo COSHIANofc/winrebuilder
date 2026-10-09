@@ -18,6 +18,9 @@ The final application runs on Windows 11.
 `config.yml` is the canonical user configuration. `config.example.yml` is the conservative release example.
 The WPF GUI edits `config.yml` through WinRebuilder.Core; the GUI, planner and executor use that same model.
 The public version is the exact `InformationalVersion` in `Directory.Build.props`; `Version`, `AssemblyVersion`, and `FileVersion` stay numeric.
+For v.1.0.a-pre1, `Version` is `0.4.0` and assembly/file versions are `0.4.0.0`.
+The GUI and primary README support Japanese and English. Japanese is the default UI language; language selection is stored outside `config.yml`.
+The application icon must be wired to the WPF window and Windows EXE, including published artifacts.
 
 ## Priorities
 
