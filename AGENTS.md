@@ -220,8 +220,6 @@ The tag-release workflow must:
 - fail before publishing if the tag and application version differ
 - run restore, build, and tests before release publication
 - verify expected release artifacts exist and are non-empty
-- sign the published executable with a real COSHIAN Authenticode certificate and verify it before packaging
-- reject release publication when production signing secrets are unavailable
 - use only the GitHub-provided `GITHUB_TOKEN`
 - use job-scoped `contents: write` only where release publication requires it
 - avoid long-lived repository or personal access tokens
@@ -232,7 +230,7 @@ Release assets should include the required executable artifacts and conservative
 
 The only manually uploaded release assets are `WinRebuilder.zip` and `WinRebuilder-portable.exe`.
 The ZIP must contain exactly `README.md`, `WinRebuilder.exe`, `config.yml`, and `config.example.yml`.
-The portable executable must be a byte-for-byte copy of the final signed executable.
+The portable executable must be a byte-for-byte copy of the final published executable.
 GitHub provides source code archives automatically.
 
 Do not publish a default configuration that performs unexpected or destructive machine changes.

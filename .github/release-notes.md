@@ -1,6 +1,6 @@
 WinRebuilder v.0.3.c-beta is a GUI-only Windows 11 release with a redesigned native WPF interface, configuration editing, ExplorerPatcher settings controls, and registry backup restoration.
 
-Download `WinRebuilder.zip` for the standard distribution or `WinRebuilder-portable.exe` to keep configuration beside a single executable. Both distributions use the same signed application bytes. Review `config.yml` before installing software.
+Download `WinRebuilder.zip` for the standard distribution or `WinRebuilder-portable.exe` to keep configuration beside a single executable. Both distributions use the same application bytes. Review `config.yml` before installing software.
 
 - Edit `config.yml` through the GUI; add or remove winget software, install selected or all configured packages, and view results.
 - Install ExplorerPatcher through a pinned, source-verified winget manifest; optionally validate and apply its allowlisted `.reg` settings.

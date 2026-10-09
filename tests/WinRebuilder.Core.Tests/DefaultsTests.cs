@@ -22,7 +22,7 @@ public sealed class DefaultsTests
     }
 
     [Fact]
-    public void ReleaseSourcesRequireGuiSigningAndExactPackageManifest()
+    public void ReleaseSourcesRequireGuiAndExactPackageManifest()
     {
         var props = XDocument.Load(Path.Combine(Root, "Directory.Build.props"));
         var group = props.Root!.Element("PropertyGroup")!;
@@ -42,13 +42,13 @@ public sealed class DefaultsTests
         Assert.DoesNotContain("WinRebuilder.Cli.exe", release);
         Assert.DoesNotContain("wrb.exe", release);
         var script = File.ReadAllText(Path.Combine(Root, "packaging/Build-Release.ps1"));
-        Assert.Contains("& $signTool sign", script);
-        Assert.Contains("& $signTool verify /pa /v", script);
-        Assert.DoesNotContain("Write-Host $env:WINDOWS_SIGNING_", script);
-        var verifyPosition = script.IndexOf("Verify-Signature $final", StringComparison.Ordinal);
+        Assert.DoesNotContain("WINDOWS_SIGNING_", release);
+        Assert.DoesNotContain("WINDOWS_SIGNING_", script);
+        Assert.DoesNotContain("SignTool", script, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Verify-Signature", script);
         var copyPosition = script.IndexOf("Copy-Item $final release-assets/WinRebuilder-portable.exe", StringComparison.Ordinal);
-        Assert.True(verifyPosition >= 0 && copyPosition > verifyPosition);
-        Assert.Contains("Verify-Signature 'release-assets/WinRebuilder-portable.exe'", script);
+        Assert.True(copyPosition >= 0);
+        Assert.Contains("Get-FileHash $final -Algorithm SHA256", script);
         foreach (var name in new[] { "README.md", "WinRebuilder.exe", "config.yml", "config.example.yml" })
             Assert.Contains("'" + name + "'", script);
         Assert.Contains("if (($actual -join '|') -ne ($expected -join '|'))", script);

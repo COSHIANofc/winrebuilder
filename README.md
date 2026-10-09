@@ -17,7 +17,7 @@ WinRebuilder is a native Windows 11 graphical application for rebuilding a revie
 1. Open the [latest GitHub Release](https://github.com/COSHIANofc/winrebuilder/releases).
 2. Download `WinRebuilder.zip` and extract it into a user-writable folder.
 3. Review `config.yml`, then run `WinRebuilder.exe` directly.
-4. If Windows displays a security prompt, inspect the publisher and signature before continuing. Public release packaging requires a valid COSHIAN Authenticode signature and timestamp.
+4. If Windows displays a security prompt, confirm the file came from the official GitHub release before continuing.
 
 The ZIP contains exactly `README.md`, `WinRebuilder.exe`, `config.yml`, and `config.example.yml`, with no wrapper folder. `config.yml` is edited beside the executable. `config.example.yml` is an example; it is not loaded automatically.
 
@@ -26,9 +26,7 @@ The ZIP contains exactly `README.md`, `WinRebuilder.exe`, `config.yml`, and `con
 1. Download `WinRebuilder-portable.exe` from the same release.
 2. Place it in a user-writable folder and run it directly.
 
-The portable EXE is a byte-for-byte copy of the final signed `WinRebuilder.exe`. On first launch, it creates `config.yml` beside itself from an embedded default profile if the file is absent. Later edits stay in that folder. If the folder cannot be written, the GUI reports the error; it does not silently redirect configuration to a system directory. `config.example.yml` is optional for portable use.
-
-For a signed release, open the executable's **Properties → Digital Signatures** and check that Windows validates the signature and shows **COSHIAN** as signer. File metadata such as Company and Product is separate from a digital signature. Do not assume a release is signed if Windows does not show a valid signature.
+The portable EXE is a byte-for-byte copy of the final published `WinRebuilder.exe`. On first launch, it creates `config.yml` beside itself from an embedded default profile if the file is absent. Later edits stay in that folder. If the folder cannot be written, the GUI reports the error; it does not silently redirect configuration to a system directory. `config.example.yml` is optional for portable use.
 
 ## Usage
 
@@ -71,7 +69,7 @@ Core tests run on macOS. Windows adapter and WPF tests run on Windows. A macOS b
 
 The tag workflow requires the exact public version, builds and tests, measures five publish variants, verifies that the main WPF window opens, and packages a self-contained compressed single-file build with trimming and ReadyToRun disabled. WPF and YAML reflection paths have not been fully validated under trimming, so production trimming stays off. Release assets contain no PDB files.
 
-Final-source unsigned cross-publish measurements on macOS (signing changes the final EXE size; Windows startup timing is measured in the release workflow):
+Cross-publish measurements on macOS (Windows startup timing is measured in the release workflow):
 
 | Configuration | EXE bytes | Chosen |
 | --- | ---: | --- |
@@ -83,6 +81,6 @@ Final-source unsigned cross-publish measurements on macOS (signing changes the f
 
 The current SDK baseline already has ReadyToRun disabled, so the compressed and explicit ReadyToRun-off outputs match in size. The framework-dependent build requires the Windows Desktop .NET runtime on the target machine. Compression cuts the self-contained EXE by about 54%; CI rejects the choice if first or warm Windows startup is too slow.
 
-Public releases require a real Authenticode certificate whose subject contains **COSHIAN**. GitHub Actions reads the PFX, password, and RFC 3161 timestamp URL from `WINDOWS_SIGNING_CERT_PFX_BASE64`, `WINDOWS_SIGNING_CERT_PASSWORD`, and `WINDOWS_SIGNING_TIMESTAMP_URL` secrets. It signs with SHA-256, verifies the signature and timestamp, copies the signed bytes to the portable name, verifies that copy, and inspects the ZIP manifest. If signing is unavailable or invalid, the release job fails. Local Debug and normal CI builds may be unsigned.
+The workflow copies the final published executable to the portable name, verifies that the bytes match, and inspects the ZIP manifest. Release executables are unsigned.
 
 The only manually uploaded assets are `WinRebuilder.zip` and `WinRebuilder-portable.exe`. GitHub supplies Source code (zip) and Source code (tar.gz) from the tag. The release workflow uses only `GITHUB_TOKEN`, with `contents: write` confined to the publication job. It will not overwrite an existing release.
